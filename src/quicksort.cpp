@@ -6,7 +6,7 @@
 //se define b <- se necesitan a - 1 pivotes en cada bloque B_SIZE, por ello b = B_SIZE / 8 ya que cada pivote ocupa 8 bytes
 //cada pivote debe estar entre [2,b-1]
 
-//main args: 
+//quicksort args: 
 //argv[1] <- M_SIZE
 //argv[2] <- B_SIZE quiza lo podemos dejar fijo en 4096 en el header quicksort.h 
 //argv[3] <- N_SIZE
