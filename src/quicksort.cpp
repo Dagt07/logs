@@ -133,8 +133,48 @@ void quicksort(FILE* file, long N_SIZE, int a, long offset) {
     writeBlock(file, offset, sortedArray);
 }
 
+bool check_sorted(FILE* file, long input_size) {
+    // Calculamos cuántos enteros caben en input_size bytes
+    long num_elements = input_size / sizeof(int);
+    
+    if (num_elements <= 0) {
+        cerr << "El tamaño del archivo no es suficiente para contener al menos un entero." << endl;
+        return false;
+    }
+
+    vector<int> v(num_elements);
+    
+    // Nos aseguramos de empezar desde el inicio del archivo
+    fseek(file, 0, SEEK_SET);
+    
+    // Leemos la cantidad de bytes especificada
+    size_t bytesRead = fread(v.data(), sizeof(int), num_elements, file);
+    
+    /*
+    // Verificamos si se leyeron la cantidad correcta de bytes
+    cout << "Esperado leer: " << input_size << " bytes." << endl;
+    cout << "Leídos: " << bytesRead * sizeof(int) << " bytes." << endl;
+    */
+
+    
+    if (bytesRead * sizeof(int) != input_size) {
+        cerr << "Error leyendo el archivo. Se esperaban " << input_size << " bytes, pero solo se leyeron " << bytesRead * sizeof(int) << " bytes." << endl;
+        return false;  // Si no se leen todos los datos correctamente, devolvemos false
+    }
+
+    // Verificamos si está ordenado
+    if (is_sorted(v.begin(), v.end())) {
+        cout << "El archivo está ordenado." << endl;
+        return true;
+    } else {
+        cout << "El archivo NO está ordenado." << endl;
+        return false;
+    }
+}
+
+
 // Función para imprimir los primeros N elementos de un archivo binario
-void printFirstElements(FILE* file, long elements) {
+void printFirstElements(FILE* file, long elements) {//, long input_size) {
     vector<int> buffer(elements);
     fseek(file, 0, SEEK_SET);
     size_t bytesRead = fread(buffer.data(), sizeof(int), elements, file);
@@ -150,19 +190,31 @@ void printFirstElements(FILE* file, long elements) {
     }
 
     cout << endl;
-    // Checking if vector v is sorted or not
+      // Checking if vector v is sorted or not
     if (is_sorted(buffer.begin(), buffer.end()))
+      cout << "Sorted";
+    else
+      cout << "Not Sorted";
+    cout << endl;
+    
+    /*
+    vector<int> totalbuffer(input_size / sizeof(int));
+    fseek(file, 0, SEEK_SET);
+    size_t totalbytesRead = fread(totalbuffer.data(), sizeof(int), input_size / sizeof(int), file);
+    
+    // Checking if vector v is sorted or not
+    if (is_sorted(totalbuffer.begin(), totalbuffer.end()))
         cout << "Sorted";
     else
         cout << "Not Sorted";
-
     cout << endl;
+    */
 }
 
 int main(int argc, char* argv[]) {
 
-    long N_SIZE = 20000000; // Este valor debe ser determinado por el archivo de entrada
-    int a = 41; // Número de particiones (se puede ajustar dependiendo de M y B)
+    long N_SIZE = 100000; // Este valor debe ser determinado por el archivo de entrada
+    int a = 12; // Número de particiones (se puede ajustar dependiendo de M y B)
     
     // Generar la secuencia aleatoria y guardarla en "input.bin"
     generate_sequence(N_SIZE, "input.bin", B_SIZE);
@@ -176,7 +228,9 @@ int main(int argc, char* argv[]) {
     }
 
     // Imprimir los primeros X elementos antes de ordenar
-    printFirstElements(file, 10);
+    printFirstElements(file, 10); //, N_SIZE); 
+    
+    //cout << "Sorted? " << check_sorted(file, N_SIZE) << endl;
 
     // Llamar al quicksort externo
     quicksort(file, N_SIZE, a, 0);
@@ -185,7 +239,8 @@ int main(int argc, char* argv[]) {
 
     // Imprimir los primeros X elementos después de ordenar
     fseek(file, 0, SEEK_SET);  // Volver al principio del archivo para leer de nuevo
-    printFirstElements(file, 25);
+    printFirstElements(file, 2500); //, N_SIZE);
+    //cout << "Sorted? " << check_sorted(file, N_SIZE) << endl;
 
     filesystem::remove("subarray_temp.bin"); // Eliminar el archivo temporal
 
