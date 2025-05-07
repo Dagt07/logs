@@ -18,24 +18,23 @@
 
 
 //funcion que determina a
-
+//experimentalmente se busca el a optimo usando mergesort, luego de tenerlo ya queda fijo y se usa de ahí en adelante
+//por ello no forma parte del main
 
 //main:
     
     //for(int i = 0; i < 15; i++) {
         //1) llamar a la función que genera los 5 archivos para un único tamaño N <- haciendo todo para no ocupar tanto espacio en disco
 
-        //2) determinar a
+        //2) llamado a mergesort sobre cada uno de los 5 archivos de tamaño N. 
 
-        //3) llamado a mergesort sobre cada uno de los 5 archivos de tamaño N. 
+        //3) llamado a quicksort sobre cada uno de los 5 archivos de tamaño N. 
 
-        //4) llamado a quicksort sobre cada uno de los 5 archivos de tamaño N. 
+        //4) promediar los resultados para ese N
 
-        //5) promediar los resultados para ese N
+        //5) guardar los resultados en un archivo de salida (csv o txt)
 
-        //6) guardar los resultados en un archivo de salida (csv o txt)
-
-        //7) liberar memoria
+        //6) liberar memoria
 
     //y más cosas a implementar...
 
