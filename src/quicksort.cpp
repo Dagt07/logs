@@ -49,7 +49,7 @@
 // se ordena el bloque completo gratis en memoria principal con sort
 //else N_SIZE > M_SIZE
 // 1) Se selecciona un bloque de tamaño B_SIZE aleatorio de nuestro input N de N_SIZE (ya que solo podemos leer B_SIZE bytes a la vez)
-// 2) Se seleccionan aleatoriamente a-1 pivotes dentro del bloque seleccionado en el paso anterior
+// 2) Se seleccionan aleatoriamente a-1 pivotes dentro del bloque seleccionado en el paso anterior (ya son elementos al azar, por lo que son buenos candidatos como pivotes)
 // 2.1) en un buffer ordeno gratis los pivotes seleccionados en el paso anterior (es gratis, ya que en general a es menor que B_SIZE = 4096)
 // 3) Uso secuencialmente los pivotes ordenados para definir en que (a-1 buffers) se almacenan los elementos menores, entre medio y mayores a los pivotes seleccionados en el paso 2 leyendo el input N por bloques de tamaño B_SIZE
 // 4) Se llama recursivamente a quicksort para cada uno de los buffers generados en el paso 3
@@ -63,17 +63,25 @@
 #include <cstdlib>
 #include <ctime>
 #include <algorithm> // For std::sort
+#include "sequence_generator.hpp"
+#include <filesystem>
 
 using namespace std;
 
 #define B_SIZE 4096  // Tamaño del bloque de disco
-#define M_SIZE (50 * 1024 * 1024)  // Memoria principal de 50 MB
+#define M_SIZE (50 * 1024 * 1024 / 1000) // Memoria principal de 50 MB
 
 // Función auxiliar para leer un bloque desde el archivo binario
 void readBlock(FILE* file, long offset, vector<int>& buffer) {
     fseek(file, offset * B_SIZE, SEEK_SET);
-    fread(buffer.data(), sizeof(int), B_SIZE / sizeof(int), file);
+    size_t bytesRead = fread(buffer.data(), sizeof(int), B_SIZE / sizeof(int), file);
+    
+    if (bytesRead != B_SIZE / sizeof(int)) {
+        cerr << "Error: no se pudo leer el bloque completo del archivo." << endl;
+        exit(1);  // Finaliza la ejecución si ocurre un error de lectura
+    }
 }
+
 
 // Función auxiliar para escribir un bloque en el archivo binario
 void writeBlock(FILE* file, long offset, const vector<int>& buffer) {
@@ -86,7 +94,11 @@ void selectPivots(vector<int>& block, int a) {
     srand(time(0));
     for (int i = 0; i < a - 1; ++i) {
         int randIndex = rand() % block.size();
-        swap(block[i], block[randIndex]);
+        //hace swap para que aleatoriamente los pivotes seleccionados queden juntos al principio del bloque
+        //ya que posteriormente necesitamos manipular los pivotes para que queden ordenados, 
+        //al ser a<B_SIZE basicamente dejamos todos los pivotes juntos al principio del bloque
+        //y el resto de los elementos quedan al final
+        swap(block[i], block[randIndex]); 
     }
 }
 
@@ -105,7 +117,7 @@ void quicksort(FILE* file, long N_SIZE, int a, long offset) {
     vector<int> block(B_SIZE / sizeof(int));
     readBlock(file, offset, block);
 
-    // Seleccionar pivotes aleatorios
+    // Seleccionar pivotes aleatorios y dejarlos al principio del bloque
     selectPivots(block, a);
 
     // Ordenar pivotes en memoria
@@ -144,20 +156,49 @@ void quicksort(FILE* file, long N_SIZE, int a, long offset) {
     writeBlock(file, offset, sortedArray);
 }
 
+// Función para imprimir los primeros N elementos de un archivo binario
+void printFirstElements(FILE* file, long N) {
+    vector<int> buffer(N);
+    fseek(file, 0, SEEK_SET);
+    size_t bytesRead = fread(buffer.data(), sizeof(int), N, file);
+    
+    if (bytesRead != N) {
+        cerr << "Error al leer los primeros elementos del archivo." << endl;
+        exit(1);
+    }
+
+    cout << "Primeros " << N << " elementos del archivo:" << endl;
+    for (long i = 0; i < N; ++i) {
+        cout << buffer[i] << " ";
+    }
+    cout << endl;
+}
+
 int main(int argc, char* argv[]) {
+
+    long N_SIZE = 100000; // Este valor debe ser determinado por el archivo de entrada
+    int a = 2; // Número de particiones (se puede ajustar dependiendo de M y B)
+    
+    // Generar la secuencia aleatoria y guardarla en "input.bin"
+    generate_sequence(N_SIZE, "input.bin", B_SIZE);
+
     // Abrir archivo binario con el arreglo
-    FILE* file = fopen("input.bin", "rb+");
+    FILE* file = fopen("input.bin", "rb+"); // Abre el archivo en modo lectura/escritura binaria
 
     if (!file) {
         cerr << "Error al abrir el archivo" << endl;
         return 1;
     }
 
-    long N_SIZE = 10000000; // Este valor debe ser determinado por el archivo de entrada
-    int a = 10; // Número de particiones (se puede ajustar dependiendo de M y B)
+    // Imprimir los primeros 10 elementos antes de ordenar
+    printFirstElements(file, 10);
 
     // Llamar al quicksort externo
     quicksort(file, N_SIZE, a, 0);
+
+    // Imprimir los primeros 10 elementos después de ordenar
+    fseek(file, 0, SEEK_SET);  // Volver al principio del archivo para leer de nuevo
+    printFirstElements(file, 10);
 
     fclose(file);
     return 0;
