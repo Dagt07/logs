@@ -3,11 +3,33 @@
 #include <string.h>
 #include <vector>
 #include <algorithm>
+#include <ctime>
 
-const size_t B = 1024; // Tamaño del bloque en bytes (revisar en enuncciado de cuanto era esto)
+const size_t B = 4096; // Tamaño del bloque en bytes (revisar en enuncciado de cuanto era esto)
 const size_t M = 50 * 1024 * 1024; // Memoria principal
 int accesos_disco = 0;
 
+void generar_arreglo_binario(const char* nombre_archivo, size_t num_elementos) {
+    FILE* archivo = fopen(nombre_archivo, "wb");
+    if (!archivo) {
+        printf("Error al abrir el archivo para escribir\n");
+        return;
+    }
+
+    std::vector<int> arreglo(num_elementos);
+    
+    // Semilla para números aleatorios
+    std::srand(static_cast<unsigned int>(std::time(0)));
+
+    // Llenar el arreglo con números aleatorios
+    for (size_t i = 0; i < num_elementos; i++) {
+        arreglo[i] = std::rand() % 100000;  // Números aleatorios entre 0 y 99999
+    }
+
+    // Escribir el arreglo en el archivo binario
+    fwrite(arreglo.data(), sizeof(int), num_elementos, archivo);
+    fclose(archivo);
+}
 
 // cachar que wea debo meter en el sizeof() (no me acuerdo que es lo que tenemos que ordenar)
 size_t leer_bloque(FILE *archivo, std::vector<int>& buffer){
@@ -29,13 +51,24 @@ bool comparar_enteros(int a, int b) {
     return a < b;
 }
 
-// Función para convertir int a string (sin usar std::to_string)
-std::string to_string(int num) {
-    std::stringstream ss;
-    ss << num;
-    return ss.str();
-}
+// Función para leer el archivo binario y cargarlo en un vector
+void leer_arreglo_binario(const char* nombre_archivo, std::vector<int>& buffer) {
+    FILE* archivo = fopen(nombre_archivo, "rb");
+    if (!archivo) {
+        printf("Error al abrir el archivo para leer\n");
+        return;
+    }
 
+    fseek(archivo, 0, SEEK_END);
+    size_t tamano_archivo = ftell(archivo);
+    fseek(archivo, 0, SEEK_SET);
+
+    size_t num_elementos = tamano_archivo / sizeof(int);
+    buffer.resize(num_elementos);
+
+    fread(buffer.data(), sizeof(int), num_elementos, archivo);
+    fclose(archivo);
+}
 
 // Implementación de MergeSort Externo
 void merge_sort(const char* arch_entrada, const char* arch_salida, int a) {
@@ -127,8 +160,35 @@ void merge_sort(const char* arch_entrada, const char* arch_salida, int a) {
 }
 
 int main() {
-    // Aquí puedes probar el merge_sort con un archivo de entrada
-    merge_sort("archivo_entrada.bin", "archivo_salida.bin", 4);
+    // Generar un arreglo aleatorio y guardarlo en un archivo binario
+    size_t num_elementos = 10; // Número de elementos (por ejemplo, 1 millón)
+    generar_arreglo_binario("archivo_entrada.bin", num_elementos);
+
+    // Leer y mostrar el arreglo desordenado
+    std::vector<int> arreglo_entrada;
+    leer_arreglo_binario("archivo_entrada.bin", arreglo_entrada);
+    printf("Arreglo desordenado (primeros 10 elementos):\n");
+    for (size_t i = 0; i < 10 && i < arreglo_entrada.size(); i++) {
+        printf("%d ", arreglo_entrada[i]);
+    }
+    printf("\n");
+
+    // Ejecutar MergeSort en el archivo binario generado
+    merge_sort("archivo_entrada.bin", "archivo_salida.bin", 2);
+
+    // Leer el archivo ordenado y mostrar los primeros 10 elementos
+    std::vector<int> arreglo_salida;
+
+    leer_arreglo_binario("archivo_salida.bin", arreglo_salida);
+
+    printf("Arreglo ordenado (primeros 10 elementos):\n");
+    for (size_t i = 0; i < 10 && i < arreglo_salida.size(); i++) {
+        printf("%d ", arreglo_salida[i]);
+    }
+    printf("\n");
+
+    // Imprimir los accesos a disco
     printf("Accesos a disco: %d\n", accesos_disco);
+
     return 0;
-}
+} 
