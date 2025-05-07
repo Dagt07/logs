@@ -194,8 +194,8 @@ void printFirstElements(FILE* file, long elements) {
 
 int main(int argc, char* argv[]) {
 
-    long N_SIZE = 2000000; // Este valor debe ser determinado por el archivo de entrada
-    int a = 14; // Número de particiones (se puede ajustar dependiendo de M y B)
+    long N_SIZE = 20000000; // Este valor debe ser determinado por el archivo de entrada
+    int a = 41; // Número de particiones (se puede ajustar dependiendo de M y B)
     
     // Generar la secuencia aleatoria y guardarla en "input.bin"
     generate_sequence(N_SIZE, "input.bin", B_SIZE);
@@ -208,7 +208,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Imprimir los primeros 10 elementos antes de ordenar
+    // Imprimir los primeros X elementos antes de ordenar
     printFirstElements(file, 10);
 
     // Llamar al quicksort externo
@@ -216,9 +216,11 @@ int main(int argc, char* argv[]) {
 
     cout << "Accesos al disco: " << disk_access << endl;
 
-    // Imprimir los primeros 10 elementos después de ordenar
+    // Imprimir los primeros X elementos después de ordenar
     fseek(file, 0, SEEK_SET);  // Volver al principio del archivo para leer de nuevo
-    printFirstElements(file, 10);
+    printFirstElements(file, 25);
+
+    filesystem::remove("subarray_temp.bin"); // Eliminar el archivo temporal
 
     fclose(file);
     return 0;
