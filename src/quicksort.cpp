@@ -69,12 +69,12 @@
 using namespace std;
 
 #define B_SIZE 4096  // Tamaño del bloque de disco
-#define M_SIZE (50 * 1024 * 1024 / 1000) // Memoria principal de 50 MB
+#define M_SIZE (50 * 1024 * 1024) // Memoria principal de 50 MB
 
 int disk_access = 0; // Contador de accesos al disco
 
 // Función auxiliar para leer un bloque desde el archivo binario
-void readBlock(FILE* file, long offset, vector<int>& buffer) {
+size_t readBlock(FILE* file, long offset, vector<int>& buffer) {
     size_t elementos = B_SIZE / sizeof(int);  // Calcular cuántos elementos caben en el bloque
     buffer.resize(elementos);  // Redimensionar el buffer
     fseek(file, offset * B_SIZE, SEEK_SET);
@@ -83,6 +83,8 @@ void readBlock(FILE* file, long offset, vector<int>& buffer) {
     if (bytesRead > 0){
         disk_access ++;
     }
+
+    return bytesRead;
 }
 
 
@@ -90,6 +92,7 @@ void readBlock(FILE* file, long offset, vector<int>& buffer) {
 void writeBlock(FILE* file, long offset, const vector<int>& buffer) {
     fseek(file, offset * B_SIZE, SEEK_SET);
     fwrite(buffer.data(), sizeof(int), B_SIZE / sizeof(int), file);
+    disk_access ++;
 }
 
 // Función para obtener pivotes aleatorios dentro de un bloque
@@ -164,30 +167,38 @@ void quicksort(FILE* file, long N_SIZE, int a, long offset) {
 }
 
 // Función para imprimir los primeros N elementos de un archivo binario
-void printFirstElements(FILE* file, long N) {
-    vector<int> buffer(N);
+void printFirstElements(FILE* file, long elements) {
+    vector<int> buffer(elements);
     fseek(file, 0, SEEK_SET);
-    size_t bytesRead = fread(buffer.data(), sizeof(int), N, file);
+    size_t bytesRead = fread(buffer.data(), sizeof(int), elements, file);
     
-    if (bytesRead != N) {
+    if (bytesRead != elements) {
         cerr << "Error al leer los primeros elementos del archivo." << endl;
         exit(1);
     }
 
-    cout << "Primeros " << N << " elementos del archivo:" << endl;
-    for (long i = 0; i < N; ++i) {
+    cout << "Primeros " << elements << " elementos del archivo:" << endl;
+    for (long i = 0; i < elements; ++i) {
         cout << buffer[i] << " ";
     }
+
+    cout << endl;
+    // Checking if vector v is sorted or not
+    if (is_sorted(buffer.begin(), buffer.end()))
+        cout << "Sorted";
+    else
+        cout << "Not Sorted";
+
     cout << endl;
 }
 
 int main(int argc, char* argv[]) {
 
-    long N_SIZE = 100000; // Este valor debe ser determinado por el archivo de entrada
-    int a = 2; // Número de particiones (se puede ajustar dependiendo de M y B)
+    long N_SIZE = 2000000; // Este valor debe ser determinado por el archivo de entrada
+    int a = 14; // Número de particiones (se puede ajustar dependiendo de M y B)
     
     // Generar la secuencia aleatoria y guardarla en "input.bin"
-    //generate_sequence(N_SIZE, "input.bin", B_SIZE);
+    generate_sequence(N_SIZE, "input.bin", B_SIZE);
 
     // Abrir archivo binario con el arreglo
     FILE* file = fopen("input.bin", "rb+"); // Abre el archivo en modo lectura/escritura binaria
