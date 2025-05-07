@@ -71,14 +71,17 @@ using namespace std;
 #define B_SIZE 4096  // Tamaño del bloque de disco
 #define M_SIZE (50 * 1024 * 1024 / 1000) // Memoria principal de 50 MB
 
+int disk_access = 0; // Contador de accesos al disco
+
 // Función auxiliar para leer un bloque desde el archivo binario
 void readBlock(FILE* file, long offset, vector<int>& buffer) {
+    size_t elementos = B_SIZE / sizeof(int);  // Calcular cuántos elementos caben en el bloque
+    buffer.resize(elementos);  // Redimensionar el buffer
     fseek(file, offset * B_SIZE, SEEK_SET);
-    size_t bytesRead = fread(buffer.data(), sizeof(int), B_SIZE / sizeof(int), file);
+    size_t bytesRead = fread(buffer.data(), sizeof(int), elementos, file);
     
-    if (bytesRead != B_SIZE / sizeof(int)) {
-        cerr << "Error: no se pudo leer el bloque completo del archivo." << endl;
-        exit(1);  // Finaliza la ejecución si ocurre un error de lectura
+    if (bytesRead > 0){
+        disk_access ++;
     }
 }
 
@@ -113,7 +116,7 @@ void quicksort(FILE* file, long N_SIZE, int a, long offset) {
         return;
     }
 
-    // Leer un bloque aleatorio
+    // Leer un bloque de tamaño B_SIZE
     vector<int> block(B_SIZE / sizeof(int));
     readBlock(file, offset, block);
 
@@ -136,17 +139,21 @@ void quicksort(FILE* file, long N_SIZE, int a, long offset) {
     }
 
     // Recursión: llamar a quicksort en cada subarreglo
+    long current_offset = 0;  // Mantener un offset de lectura para los subarreglos
     for (int i = 0; i < a; ++i) {
         if (!subarrays[i].empty()) {
-            // Aquí se debería escribir cada subarreglo en su propio archivo temporal
-            FILE* subFile = fopen("subarray.bin", "wb");
+            // En lugar de escribir y reabrir archivos, almacenamos los subarreglos en memoria
+            FILE* subFile = fopen("subarray_temp.bin", "wb");
             fwrite(subarrays[i].data(), sizeof(int), subarrays[i].size(), subFile);
             fclose(subFile);
-            quicksort(subFile, subarrays[i].size(), a, 0);
+
+            // Llamar recursivamente al quicksort con el nuevo subarreglo
+            quicksort(subFile, subarrays[i].size(), a, current_offset);
+            current_offset++; // Actualizamos el offset para los subarreglos
         }
     }
 
-    // Finalmente, combinar los subarreglos
+    // Finalmente, combinar los subarreglos en el bloque original y escribir al archivo
     vector<int> sortedArray;
     for (int i = 0; i < a; ++i) {
         sortedArray.insert(sortedArray.end(), subarrays[i].begin(), subarrays[i].end());
@@ -180,7 +187,7 @@ int main(int argc, char* argv[]) {
     int a = 2; // Número de particiones (se puede ajustar dependiendo de M y B)
     
     // Generar la secuencia aleatoria y guardarla en "input.bin"
-    generate_sequence(N_SIZE, "input.bin", B_SIZE);
+    //generate_sequence(N_SIZE, "input.bin", B_SIZE);
 
     // Abrir archivo binario con el arreglo
     FILE* file = fopen("input.bin", "rb+"); // Abre el archivo en modo lectura/escritura binaria
@@ -195,6 +202,8 @@ int main(int argc, char* argv[]) {
 
     // Llamar al quicksort externo
     quicksort(file, N_SIZE, a, 0);
+
+    cout << "Accesos al disco: " << disk_access << endl;
 
     // Imprimir los primeros 10 elementos después de ordenar
     fseek(file, 0, SEEK_SET);  // Volver al principio del archivo para leer de nuevo
