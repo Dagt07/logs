@@ -1,3 +1,4 @@
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,12 +6,19 @@
 #include <algorithm>
 #include <ctime>
 
+
+#include <fstream>
+#include <cstdlib>
+#include <filesystem>
+using namespace std;
+
+
 const size_t B_SIZE = 4096; // Tamaño del bloque en bytes (revisar en enuncciado de cuanto era esto)
 const size_t M_SIZE = 50 * 1024 * 1024; // Memoria principal
 int accesos_disco = 0;
 
 
-
+//Función para el test
 void generar_arreglo_binario(const char* nombre_archivo, size_t num_elementos) {
     FILE* archivo = fopen(nombre_archivo, "wb");
     if (!archivo) {
@@ -33,6 +41,7 @@ void generar_arreglo_binario(const char* nombre_archivo, size_t num_elementos) {
     fclose(archivo);
 }
 
+//Función para el test
 // Función para leer el archivo binario y cargarlo en un vector
 void leer_arreglo_binario(const char* nombre_archivo, std::vector<int>& buffer) {
     FILE* archivo = fopen(nombre_archivo, "rb");
@@ -53,24 +62,76 @@ void leer_arreglo_binario(const char* nombre_archivo, std::vector<int>& buffer) 
 }
 
 
+// Comparator function
+bool comp(int a, int b) {
+    cout << a << endl;
+    return a > b;
+}
 
-
-
-
-
-// Función para leer un bloque de tamaño B y cargarlo en el buffer
+// lee un bloque de tamaño B y cargarlo en el buffer
 size_t leer_bloque(FILE* archivo, std::vector<int>& buffer) {
     size_t elementos = B_SIZE / sizeof(int);  // Número de enteros que caben en el bloque
     buffer.resize(elementos);
     size_t leidos = fread(buffer.data(), sizeof(int), elementos, archivo);  // Leer el bloque
+    if (leidos > 0) {
+        accesos_disco++;  
+    }
     return leidos;
 }
 
-// Función para escribir un bloque de tamaño B desde el buffer al archivo
+// escribe un bloque de tamaño B desde el buffer al archivo
 void escribir_bloque(FILE* archivo, const std::vector<int>& buffer, size_t cantidad) {
     fwrite(buffer.data(), sizeof(int), cantidad, archivo);
+    if (cantidad > 0) {
+        accesos_disco++;  
+    }
 }
 
+// Función para verificar si el archivo está ordenado (mayor a menor)
+bool check_sorted(FILE* file, long input_size) {
+    long num_elements = input_size / sizeof(int);
+    
+    if (num_elements <= 0) {
+        std::cerr << "El tamaño del archivo no es suficiente para contener al menos un entero." << std::endl;
+        return false;
+    }
+
+    std::vector<int> prev_buffer;
+    std::vector<int> curr_buffer;
+    
+    // Nos aseguramos de empezar desde el inicio del archivo
+    fseek(file, 0, SEEK_SET);
+    
+    size_t bytesRead = leer_bloque(file, curr_buffer);  // Leer el primer bloque
+    if (bytesRead == 0) return false;  // Si no leemos nada, retornamos false
+
+    // Establecer el primer bloque como "anterior" para la comparación
+    prev_buffer = curr_buffer;
+
+    // Leer el archivo en bloques y comparar elementos consecutivos
+    while (bytesRead > 0) {
+        // Leer el siguiente bloque
+        bytesRead = leer_bloque(file, curr_buffer);
+        
+        // Si el bloque actual tiene elementos, lo comparamos con el bloque anterior
+        if (bytesRead > 0) {
+            // Comparar el último elemento del bloque anterior con el primer elemento del bloque actual
+            if (prev_buffer.back() < curr_buffer.front()) {
+                std::cout << "El archivo NO está ordenado." << std::endl;
+                return false;  // Si encontramos que no está ordenado, retornamos false
+            }
+        }
+
+        // Actualizar el bloque anterior
+        prev_buffer = curr_buffer;
+    }
+
+    std::cout << "El archivo está ordenado." << std::endl;
+    return true;
+}
+
+
+//La magia: 
 
 void generar_subarreglos_y_ordenar(const char* archivo_entrada, int a){
     FILE* entrada = fopen(archivo_entrada, "rb");
@@ -114,6 +175,7 @@ void generar_subarreglos_y_ordenar(const char* archivo_entrada, int a){
     fclose(entrada);
     printf("Generados %d subarreglos.\n", contador_chunks);
 }
+
 
 
 void merge_k_way(const char* arch_salida, int a){
@@ -185,7 +247,7 @@ void merge_k_way(const char* arch_salida, int a){
 
 
 /* 
-Mergesort v2
+Mergesort v2 
 1. Generación de subarreglos y ordenamiento
     - Leer archivo en bloques de tamaño B
     - Dividir el archivo en a subarreglos que quepan en M.
@@ -212,8 +274,6 @@ void merge_sort(const char* arch_entrada, const char* arch_salida, int a) {
         return;
     }
 
-
-
     // Leer y escribir el contenido del archivo sin modificarlo
     std::vector<int> buffer_(tamano_archivo / sizeof(int));
     fread(buffer_.data(), sizeof(int), buffer_.size(), entrada);
@@ -224,24 +284,16 @@ void merge_sort(const char* arch_entrada, const char* arch_salida, int a) {
     */
     
 }
-
-
-
-
-
-
-
-
 int main() {
     // Generar un arreglo aleatorio y guardarlo en un archivo binario
-    size_t num_elementos = 10; // Número de elementos (por ejemplo, 1 millón)
+    size_t num_elementos = 1001; // Número de elementos (por ejemplo, 1 millón)
     generar_arreglo_binario("archivo_entrada.bin", num_elementos);
 
     // Leer y mostrar el arreglo desordenado
     std::vector<int> arreglo_entrada;
     leer_arreglo_binario("archivo_entrada.bin", arreglo_entrada);
     printf("Arreglo desordenado (primeros 10 elementos):\n");
-    for (size_t i = 0; i < 10 && i < arreglo_entrada.size(); i++) {
+    for (size_t i = 0; i < num_elementos && i < arreglo_entrada.size(); i++) {
         printf("%d ", arreglo_entrada[i]);
     }
     printf("\n");
@@ -254,13 +306,25 @@ int main() {
     leer_arreglo_binario("archivo_salida.bin", arreglo_salida);
 
     printf("Arreglo ordenado (primeros 10 elementos):\n");
-    for (size_t i = 0; i < 10 && i < arreglo_salida.size(); i++) {
+    for (size_t i = 0; i < num_elementos && i < arreglo_salida.size(); i++) {
         printf("%d ", arreglo_salida[i]);
     }
     printf("\n");
 
     // Imprimir los accesos a disco
     printf("Accesos a disco: %d\n", accesos_disco);
+
+    // Verificar si el archivo está ordenado (mayor a menor)
+    FILE* archivo_salida = fopen("archivo_salida.bin", "rb");
+    if (archivo_salida) {
+        fseek(archivo_salida, 0, SEEK_END);
+        long input_size = ftell(archivo_salida);
+        check_sorted(archivo_salida, input_size);
+        fclose(archivo_salida);
+    } else {
+        std::cerr << "Error al abrir el archivo de salida para verificar el orden." << std::endl;
+    }
+    
 
     return 0;
 }
