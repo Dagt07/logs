@@ -13,20 +13,20 @@
 
 /**
  * Genera una secuencia pseudo‑aleatoria de N enteros de 64 bit y la escribe en
- * disco **exclusivamente** en bloques de B_SIZE bytes.
+ * disco **exclusivamente** en bloques de BLOCK_SIZE bytes.
  *
  * @param N          Cantidad de enteros de 64 bit.
  * @param file_name  Nombre del .bin de salida.
- * @param B_SIZE     Tamaño de bloque (debe ser múltiplo de 8).
+ * @param BLOCK_SIZE     Tamaño de bloque (debe ser múltiplo de 8).
  */
 inline void generate_sequence(std::uint64_t N,
                               const std::string& file_name,
-                              std::size_t B_SIZE)
+                              std::size_t BLOCK_SIZE)
 {
-    if (B_SIZE % sizeof(std::uint64_t) != 0)
-        throw std::invalid_argument("B_SIZE debe ser múltiplo de 8");
+    if (BLOCK_SIZE % sizeof(std::uint64_t) != 0)
+        throw std::invalid_argument("BLOCK_SIZE debe ser múltiplo de 8");
 
-    const std::size_t ints_per_block = B_SIZE / sizeof(std::uint64_t);
+    const std::size_t ints_per_block = BLOCK_SIZE / sizeof(std::uint64_t);
     std::vector<std::uint64_t> buffer(ints_per_block);
 
     std::mt19937_64 rng{std::random_device{}()};
@@ -43,14 +43,14 @@ inline void generate_sequence(std::uint64_t N,
             buffer[i] = dist(rng);
 
         /* Escribir un bloque exacto */
-        if (std::fwrite(buffer.data(), B_SIZE, 1, fp) != 1)
+        if (std::fwrite(buffer.data(), BLOCK_SIZE, 1, fp) != 1)
             throw std::runtime_error("Error de escritura en " + file_name);
 
         written += ints_per_block;
     }
 
     /* Relleno: si N no es múltiplo del bloque, *sobran* ints aleatorios;
-       la tarea lo permite mientras cada fwrite sea de tamaño B_SIZE. */
+       la tarea lo permite mientras cada fwrite sea de tamaño BLOCK_SIZE. */
 
     std::fclose(fp);
 }
