@@ -1,6 +1,27 @@
-#include <fstream>
-#include <iostream>
-#include <string>
-//#include <vector>
+#ifndef MERGESORT_H
+#define MERGESORT_H
 
-//acá dejar CONST que se vayan a usar para mergesort, ejemplo: M_SIZE, B_SIZE, etc.
+#include <vector>
+#include <cstdio>
+
+#define M 50 * 1024 * 1024 // Tamaño de M (50MB)
+#define B 1024 * 1024      // Tamaño de bloque B (1MB)
+
+typedef long long int64_t;
+
+// Función para leer un bloque de tamaño B desde el archivo
+bool readBlock(FILE* file, std::vector<int64_t>& buffer);
+
+// Función para escribir un bloque al archivo
+void writeBlock(FILE* file, const std::vector<int64_t>& buffer);
+
+// Función de fusión de varios bloques ordenados
+void mergeBlocks(FILE* output, std::vector<FILE*>& inputFiles);
+
+// Función para realizar el MergeSort Externo con aridad a
+void externalMergeSort(FILE* inputFile, FILE* outputFile, size_t start, size_t end, size_t a);
+
+// Función principal de MergeSort Externo
+void performExternalMergeSort(const char* inputFileName, const char* outputFileName, size_t a);
+
+#endif
