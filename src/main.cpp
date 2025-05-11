@@ -32,13 +32,50 @@
 #include <filesystem>
 #include <fstream>
 #include <chrono>
+#include <algorithm>
 #include "sequence_generator.hpp"
 #include "../headers/quicksort.hpp" 
+#include "../headers/mergesort.hpp"
 
 using namespace std;
 
 //vector de 15 tamaños N
-vector<int> v = {4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60};
+vector<int> v = {4, 8, 12, 16, 20, 24}; //, 28, 32, 36, 40, 44, 48, 52, 56, 60};
+
+bool checkSorted(FILE* file, long input_size) {
+    /* Verifica si el archivo completo está ordenado
+    args:
+        file: puntero al archivo que se va a verificar
+        input_size: tamaño del archivo en bytes
+    returns:
+        true si el archivo está ordenado, false en caso contrario
+    */
+
+    long numElements = input_size / sizeof(int64_t);
+    if (numElements <= 0) {
+        cerr << "El tamaño del archivo no es suficiente para contener al menos un entero." << endl;
+        return false;
+    }
+
+    vector<int64_t> buffer(numElements);
+    fseek(file, 0, SEEK_SET);
+    size_t bytesRead = fread(buffer.data(), sizeof(int64_t), numElements, file);
+
+    /* //condición apagada para test grande
+    if (bytesRead * sizeof(int64_t) != input_size) {
+        cerr << "Error leyendo el archivo." << endl;
+        return false;
+    }
+    */
+
+    if (is_sorted(buffer.begin(), buffer.end())) {
+        cout << "✅ Ordenado" << endl;
+        return true;
+    } else {
+        cout << "❌ No ordenado" << endl;
+        return false;
+    }
+}
 
 struct AlgorithmResults {
     /* Estructura para almacenar los resultados de los algoritmos, tiempo y accesos a disco respectivamente
@@ -72,15 +109,27 @@ AlgorithmResults process_sequence(const std::string& filename, long N_SIZE, int 
         results: estructura AlgorithmResults con los resultados de los algoritmos
     */
     
+    cout << "------------------" << "Procesando archivo: " << filename << "------------------" << endl;
+
     // --------------------------- MERGESORT ---------------------------
-    // auto merge_start_time = std::chrono::high_resolution_clock::now();
-    // int merge_sort_disk_access = run_mergesort(filename, N_SIZE, a, B_SIZE, M_SIZE);
-    // auto merge_end_time = std::chrono::high_resolution_clock::now();
-    // auto merge_duration = std::chrono::duration_cast<std::chrono::milliseconds>(merge_end_time - merge_start_time);
-    // results.merge_time_ms = merge_duration.count();
-    // results.merge_disk_access = merge_sort_disk_access;
-    // cout << "MergeSort completado en " << results.merge_time_ms << " ms, con " 
-    //      << results.merge_disk_access << " accesos a disco" << endl;
+    auto merge_start_time = std::chrono::high_resolution_clock::now();
+    int merge_sort_disk_access = run_mergesort(filename, N_SIZE, a, B_SIZE, M_SIZE);
+    auto merge_end_time = std::chrono::high_resolution_clock::now();
+    auto merge_duration = std::chrono::duration_cast<std::chrono::milliseconds>(merge_end_time - merge_start_time);
+    results.merge_time_ms = merge_duration.count();
+    results.merge_disk_access = merge_sort_disk_access;
+    std::cout << "MergeSort completado en " << results.merge_time_ms << " ms, con " 
+     << results.merge_disk_access << " accesos a disco" << std::endl;
+
+    // Check if the file is sorted
+    std::string sortedFilename = filename + ".sorted";
+    FILE* file = fopen(sortedFilename.c_str(), "rb");
+    if (!file) {
+        cerr << "Error: No se pudo abrir el archivo " << filename << endl;
+        return results;
+    }
+    bool _ = checkSorted(file, N_SIZE);
+    fclose(file);
     
 
     // --------------------------- QUICKSORT ---------------------------
@@ -100,6 +149,15 @@ AlgorithmResults process_sequence(const std::string& filename, long N_SIZE, int 
     results.quick_time_ms = quick_duration.count();
     results.quick_disk_access = quick_sort_disk_access;
     
+    // Check if the file is sorted
+    FILE* file2 = fopen(filename.c_str(), "rb");
+    if (!file2) {
+        cerr << "Error: No se pudo abrir el archivo " << filename << endl;
+        return results;
+    }
+    bool __ = checkSorted(file2, N_SIZE);
+    fclose(file2);
+
     // Print results
     cout << "QuickSort completado en " << results.quick_time_ms << " ms, con " 
          << results.quick_disk_access << " accesos a disco" << endl;
@@ -158,7 +216,10 @@ int main(int argc, char* argv[]){
             
             // 3. Borrar para liberar espacio                                     
             filesystem::remove(fn.str());
+            filesystem::remove(fn.str()+".sorted");
+            break;
         }
+        break;
     }
 
     // Fin del experimento

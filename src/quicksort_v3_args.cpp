@@ -118,6 +118,10 @@ void externalQuicksort(const string& fileName, long N_SIZE, int a, bool first_ru
         void
     */
 
+    if (first_run) {
+        cout << "Tamaño del archivo: " << N_SIZE << " bytes" << endl;
+    }
+
     // Caso base: Si los datos caben en la memoria principal, ordenar directamente en memoria
     if (N_SIZE * sizeof(int64_t) <= M_SIZE) {
         vector<int64_t> buffer(N_SIZE);
@@ -236,41 +240,6 @@ void externalQuicksort(const string& fileName, long N_SIZE, int a, bool first_ru
 
 // --------------------------------- Funciones auxiliares ---------------------------------
 
-bool checkSorted(FILE* file, long input_size) {
-    /* Verifica si el archivo completo está ordenado
-    args:
-        file: puntero al archivo que se va a verificar
-        input_size: tamaño del archivo en bytes
-    returns:
-        true si el archivo está ordenado, false en caso contrario
-    */
-
-    long numElements = input_size / sizeof(int64_t);
-    if (numElements <= 0) {
-        cerr << "El tamaño del archivo no es suficiente para contener al menos un entero." << endl;
-        return false;
-    }
-
-    vector<int64_t> buffer(numElements);
-    fseek(file, 0, SEEK_SET);
-    size_t bytesRead = fread(buffer.data(), sizeof(int64_t), numElements, file);
-
-    /* //condición apagada para test grande
-    if (bytesRead * sizeof(int64_t) != input_size) {
-        cerr << "Error leyendo el archivo." << endl;
-        return false;
-    }
-    */
-
-    if (is_sorted(buffer.begin(), buffer.end())) {
-        cout << "El archivo está ordenado." << endl;
-        return true;
-    } else {
-        cout << "El archivo NO está ordenado." << endl;
-        return false;
-    }
-}
-
 
 void printFirstElements(FILE* file, long numElements) {
     /* Imprime los primeros N elementos del archivo
@@ -325,8 +294,7 @@ long long run_quicksort(const std::string& inputFile, long N_SIZE, int a, long B
     B_SIZE = B_SIZE_arg; // tamaño del bloque (estandar 4096 bytes)
     M_SIZE = M_SIZE_arg; // tamaño de la memoria principal (50 MB)
 
-    cout << "------------------" << inputFile << "------------------" << endl;
-
+    /*
     // Show some elements before sorting
     {
         FILE* file = fopen(inputFile.c_str(), "rb");
@@ -337,10 +305,12 @@ long long run_quicksort(const std::string& inputFile, long N_SIZE, int a, long B
         printFirstElements(file, 10);
         fclose(file);
     }
+    */
 
     // Execute the external quicksort
     externalQuicksort(inputFile, N_SIZE, a, true);
 
+    /*
     // Optionally, print the results after sorting (if needed)
     {
         FILE* file = fopen(inputFile.c_str(), "rb");
@@ -351,6 +321,6 @@ long long run_quicksort(const std::string& inputFile, long N_SIZE, int a, long B
         printFirstElements(file, 25);
         fclose(file);
     }
-
+    */
     return disk_access;
 }

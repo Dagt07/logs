@@ -1,6 +1,13 @@
-#include <fstream>
-#include <iostream>
-#include <string>
-//#include <vector>
+#ifndef MERGESORT_HPP
+#define MERGESORT_HPP
 
-//acá dejar CONST que se vayan a usar para mergesort, ejemplo: M_SIZE, B_SIZE, etc.
+#include <string>
+
+// Interface function to run external merge sort
+long long run_mergesort(const std::string& inputFile, 
+                        long N_SIZE, 
+                        int a, 
+                        long B_SIZE, 
+                        long M_SIZE);
+
+#endif
