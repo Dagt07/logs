@@ -53,9 +53,9 @@ vector<int> v = {4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60};
 // Define a struct to hold algorithm results
 struct AlgorithmResults {
     long long merge_time_ms;
-    int merge_disk_access;
+    long long merge_disk_access;
     long long quick_time_ms;
-    int quick_disk_access;
+    long long quick_disk_access;
 };
 
 // Modified process_sequence to return the results
@@ -146,6 +146,7 @@ int main(int argc, char* argv[]){
             // 3. Borrar para liberar espacio                                     
             filesystem::remove(fn.str());
         }
+        break;
     }
 
     // Close the CSV file
