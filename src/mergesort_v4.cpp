@@ -5,13 +5,13 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <cstdint> // For standard int64_t
+#include <limits>
 
 #define M 50 * 1024 * 1024 // Tamaño de M (50MB)
 #define B 1024 * 1024      // Tamaño de bloque B (1MB)
 
 using namespace std;
-
-typedef long long int64_t;
 
 // Función para leer un bloque de tamaño B desde el archivo
 bool readBlock(FILE* file, vector<int64_t>& buffer) {
@@ -45,7 +45,7 @@ void mergeBlocks(FILE* output, vector<FILE*>& inputFiles) {
     // Mientras haya elementos por fusionar
     while (!allFilesRead) {
         size_t minIndex = -1;
-        int64_t minValue = numeric_limits<int64_t>::max();
+        int64_t minValue = std::numeric_limits<int64_t>::max();
 
         // Encuentra el elemento mínimo entre los archivos
         for (size_t i = 0; i < inputFiles.size(); ++i) {
