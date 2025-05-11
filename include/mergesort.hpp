@@ -3,11 +3,10 @@
 
 #include <vector>
 #include <cstdio>
+#include <cstdint> // For int64_t
 
 #define M 50 * 1024 * 1024 // Tamaño de M (50MB)
 #define B 1024 * 1024      // Tamaño de bloque B (1MB)
-
-typedef long long int64_t;
 
 // Función para leer un bloque de tamaño B desde el archivo
 bool readBlock(FILE* file, std::vector<int64_t>& buffer);
