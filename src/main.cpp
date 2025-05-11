@@ -41,7 +41,7 @@
 #include <iostream>
 #include <filesystem>
 #include "sequence_generator.hpp"
-#include "quicksort.hpp" 
+#include "../headers/quicksort.hpp" 
 
 using namespace std;
 
@@ -84,10 +84,8 @@ int main(int argc, char* argv[]){
             // 2. Procesar (algoritmos externos, medición, etc.)                  
             process_sequence(fn.str(), N, 30 , B_SIZE, M_BYTES);
             cout << "Archivo " << fn.str() << " procesado.\n";
-            
             // 3. Borrar para liberar espacio                                     
             filesystem::remove(fn.str());
-        }
     }
 
     cout << "\n✓ Experimento completo sin acumular archivos.\n";
