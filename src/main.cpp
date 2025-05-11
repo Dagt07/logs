@@ -7,16 +7,6 @@
 //se define N_SIZE <- tamaño del array que contiene a los elementos a ordenar (input)
 //se define a <- valor que se debe determinar acá y define: 1) aridad del mergesort 2) Número de particiones que se van a realizar en el algoritmo de quicksort
 
-//funcion que genera 5  secuencias  de  números  enteros  de  64  bits  de  tamaño  total   𝑁,  con
-//𝑁 ∈ {4𝑀, 8𝑀, ...60𝑀} (es decir, 5 secuencias de tamaño 4𝑀, 5 secuencias de tamaño 8𝑀, ...), 
-//insertarlos desordenadamente en un arreglo y guardarlo en binario en disco. 
-//Para trabajar en disco, se guardará como un archivo binario (.bin) el arreglo de tamaño 𝑁. Este archivo
-//se deberá leer y escribir en bloques de tamaño 𝐵. Es incorrecto realizar una lectura o escritura de tamaño
-//distinto a 𝐵. Para esto, se recomienda usar las funciones fread, fwrite y fseek de C. Se recomienda
-//también usar un buffer para evitar leer y escribir cada vez que se accede a un elemento del arreglo. El
-//buffer debe ser de tamaño 𝐵 es decir, tendremos en memoria principal todo el bloque solicitado
-
-
 //funcion que determina a
 //experimentalmente se busca el a optimo usando mergesort, luego de tenerlo ya queda fijo y se usa de ahí en adelante
 //por ello no forma parte del main
@@ -41,7 +31,7 @@
 #include <iostream>
 #include <filesystem>
 #include <fstream>
-#include <chrono>  // Add this include at the top of the file
+#include <chrono>
 #include "sequence_generator.hpp"
 #include "../headers/quicksort.hpp" 
 
@@ -50,19 +40,39 @@ using namespace std;
 //vector de 15 tamaños N
 vector<int> v = {4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60};
 
-// Define a struct to hold algorithm results
 struct AlgorithmResults {
+    /* Estructura para almacenar los resultados de los algoritmos, tiempo y accesos a disco respectivamente
+    campos:
+        merge_time_ms: tiempo de ejecución de mergesort en milisegundos
+        merge_disk_access: accesos a disco de mergesort
+        quick_time_ms: tiempo de ejecución de quicksort en milisegundos
+        quick_disk_access: accesos a disco de quicksort
+    returns:
+        struct // <- se almacena en los campos de la estructura
+    */
     long long merge_time_ms;
     long long merge_disk_access;
     long long quick_time_ms;
     long long quick_disk_access;
 };
 
-// Modified process_sequence to return the results
+
 AlgorithmResults process_sequence(const std::string& filename, long N_SIZE, int a, long B_SIZE, long M_SIZE) {
     AlgorithmResults results = {0, 0, 0, 0};
+    /*
+    Función para procesar la secuencia aleatoria generada (del tamaño definido como múltiplo de M), 
+    ejecutando los algoritmos de ordenamiento y midiendo el tiempo y accesos a disco
+    args:
+        filename: nombre del archivo con la secuencia a ordenar
+        N_SIZE: número total de bytes en el archivo
+        a: número de particiones que se crearán
+        B_SIZE: tamaño del bloque en bytes
+        M_SIZE: tamaño de la memoria principal en bytes
+    returns:
+        results: estructura AlgorithmResults con los resultados de los algoritmos
+    */
     
-    // MERGESORT IMPLEMENTATION WOULD GO HERE
+    // --------------------------- MERGESORT ---------------------------
     // auto merge_start_time = std::chrono::high_resolution_clock::now();
     // int merge_sort_disk_access = run_mergesort(filename, N_SIZE, a, B_SIZE, M_SIZE);
     // auto merge_end_time = std::chrono::high_resolution_clock::now();
@@ -72,6 +82,8 @@ AlgorithmResults process_sequence(const std::string& filename, long N_SIZE, int 
     // cout << "MergeSort completado en " << results.merge_time_ms << " ms, con " 
     //      << results.merge_disk_access << " accesos a disco" << endl;
     
+
+    // --------------------------- QUICKSORT ---------------------------
     // Start measuring time for quicksort
     auto quick_start_time = std::chrono::high_resolution_clock::now();
     
@@ -96,23 +108,24 @@ AlgorithmResults process_sequence(const std::string& filename, long N_SIZE, int 
 }
 
 int main(int argc, char* argv[]){
-    if (argc != 3) {
+    if (argc != 4) {
         cerr << "Uso: " << argv[0]
-                  << " <M_SIZE_MB> <B_SIZE_bytes>\n";
+                  << " <M_SIZE MB> <B_SIZE bytes> <a particiones>\n";
         return EXIT_FAILURE;
     }
 
-    const int64_t M_BYTES = stol(argv[1]) * 1024L * 1024L;
-    const size_t B_SIZE = stol(argv[2]);
+    const int64_t M_BYTES = stol(argv[1]) * 1024L * 1024L; // Tamaño de la memoria principal en bytes
+    const size_t B_SIZE = stol(argv[2]); // Tamaño del bloque en bytes
+    const int a = stoi(argv[3]); // Número de particiones a realizar
     
-    // Create and initialize CSV file
+    // Creación del archivo CSV para guardar los resultados
     ofstream results_csv("sorting_results.csv");
     if (!results_csv) {
         cerr << "Error: No se pudo crear el archivo CSV de resultados.\n";
         return EXIT_FAILURE;
     }
     
-    // Write CSV header
+    // Encabezado del CSV
     results_csv << "Size_MB,Repetition,N_elements,MergeSort_Time_ms,MergeSort_Disk_Access,"
                 << "QuickSort_Time_ms,QuickSort_Disk_Access\n";
 
@@ -122,7 +135,7 @@ int main(int argc, char* argv[]){
         int64_t N = static_cast<int64_t>(v[i]) * M_BYTES;
 
         cout << "\n===  Multiplicador " << mult
-                  << " M  →  N = " << N << " elementos  ===\n";
+                  << " M  →  N = " << N << " bytes  ===\n";
 
         for (int rep = 1; rep <= 5; ++rep)
         {
@@ -130,11 +143,11 @@ int main(int argc, char* argv[]){
             fn << "seq_" << setw(2) << setfill('0')
                << mult << "M_rep" << rep << ".bin";
 
-            // 1. Generar                                                         
+            // 1. Generar archivo con secuencias aleatorias de int64_t                                                
             generate_sequence(N, fn.str(), B_SIZE);
 
             // 2. Procesar (algoritmos externos, medición, etc.)                  
-            AlgorithmResults results = process_sequence(fn.str(), N, 30, B_SIZE, M_BYTES);
+            AlgorithmResults results = process_sequence(fn.str(), N, a, B_SIZE, M_BYTES);
             
             // Save results to CSV
             results_csv << mult*stol(argv[1]) << "," << rep << "," << N << "," 
@@ -146,11 +159,10 @@ int main(int argc, char* argv[]){
             // 3. Borrar para liberar espacio                                     
             filesystem::remove(fn.str());
         }
-        break;
     }
 
-    // Close the CSV file
+    // Fin del experimento
     results_csv.close();
-    cout << "\n✓ Experimento completo. Resultados guardados en sorting_results.csv\n";
+    cout << "\n✓ Experimento completo. Resultados guardados en sorting_results.csv" << endl;
     return EXIT_SUCCESS;
 }
