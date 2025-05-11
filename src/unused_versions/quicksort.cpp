@@ -75,10 +75,31 @@ void selectPivots(vector<int>& block, int a) {
     }
 }
 
-// Función para realizar el quicksort externo
+// Función para particionar el bloque en subarreglos
+void partitionBlock(vector<int>& block, vector<vector<int>>& subarrays, int a) {
+    // Empezar desde el índice a (después de los pivotes)
+    for (int i = a; i < block.size(); ++i) {
+        int value = block[i];
+        bool assigned = false;
+        // Comparar con los pivotes (que están al principio del bloque)
+        for (int j = 0; j < a - 1; ++j) {
+            if (value < block[j]) {
+                subarrays[j].push_back(value);
+                assigned = true;
+                break;
+            }
+        }
+        // Si el valor no es menor que ningún pivote, lo agregamos al último subarreglo
+        if (!assigned) {
+            subarrays[a - 1].push_back(value);
+        }
+    }
+}
+
+
+// Recursión: llamar a quicksort en cada subarreglo
 void quicksort(FILE* file, long N_SIZE, int a, long offset) {
     if (N_SIZE <= M_SIZE) {
-        // Caso base: ordenar en memoria
         vector<int> block(N_SIZE);
         readBlock(file, offset, block);
         sort(block.begin(), block.end());
@@ -98,43 +119,80 @@ void quicksort(FILE* file, long N_SIZE, int a, long offset) {
 
     // Particionar el arreglo en subarreglos basados en los pivotes
     vector<vector<int>> subarrays(a);
-    for (int i = 0; i < block.size(); ++i) {
-        int value = block[i];
-        for (int j = 0; j < a - 1; ++j) {
-            if (value < block[j]) {
-                subarrays[j].push_back(value);
-                break;
-            }
-        }
-    }
+    partitionBlock(block, subarrays, a);
 
     // Recursión: llamar a quicksort en cada subarreglo
-    long current_offset = 0;  // Mantener un offset de lectura para los subarreglos
+    long current_offset = 0;  // Mantener el offset de los subarreglos
     for (int i = 0; i < a; ++i) {
         if (!subarrays[i].empty()) {
-            // En lugar de escribir y reabrir archivos, almacenamos los subarreglos en memoria
+            // Escribir el subarreglo en un archivo temporal
             FILE* subFile = fopen("subarray_temp.bin", "wb");
             fwrite(subarrays[i].data(), sizeof(int), subarrays[i].size(), subFile);
             fclose(subFile);
 
-            // Llamar recursivamente al quicksort con el nuevo subarreglo
+            // Llamar recursivamente al quicksort con el subarreglo
+            subFile = fopen("subarray_temp.bin", "rb+");  // Abrir para leer y escribir
             quicksort(subFile, subarrays[i].size(), a, current_offset);
-            current_offset++; // Actualizamos el offset para los subarreglos
+            fclose(subFile);
+            current_offset++;  // Actualizar el offset para el siguiente subarreglo
         }
     }
 
     // Finalmente, combinar los subarreglos en el bloque original y escribir al archivo
     vector<int> sortedArray;
-    for (int i = 0; i < a; ++i) {
+    for (int i = 0; i < a - 1; ++i) {
         sortedArray.insert(sortedArray.end(), subarrays[i].begin(), subarrays[i].end());
+        sortedArray.push_back(block[i]);  // Añadir pivote
     }
+    sortedArray.insert(sortedArray.end(), subarrays[a - 1].begin(), subarrays[a - 1].end());  // Último subarreglo
 
-    // Escribir los subarreglos combinados de vuelta al archivo
-    writeBlock(file, offset, sortedArray);
+    writeBlock(file, offset, sortedArray);  // Escribir de vuelta al archivo
 }
 
+
+
+bool check_sorted(FILE* file, long input_size) {
+    // Calculamos cuántos enteros caben en input_size bytes
+    long num_elements = input_size / sizeof(int);
+    
+    if (num_elements <= 0) {
+        cerr << "El tamaño del archivo no es suficiente para contener al menos un entero." << endl;
+        return false;
+    }
+
+    vector<int> v(num_elements);
+    
+    // Nos aseguramos de empezar desde el inicio del archivo
+    fseek(file, 0, SEEK_SET);
+    
+    // Leemos la cantidad de bytes especificada
+    size_t bytesRead = fread(v.data(), sizeof(int), num_elements, file);
+    
+    /*
+    // Verificamos si se leyeron la cantidad correcta de bytes
+    cout << "Esperado leer: " << input_size << " bytes." << endl;
+    cout << "Leídos: " << bytesRead * sizeof(int) << " bytes." << endl;
+    */
+
+    
+    if (bytesRead * sizeof(int) != input_size) {
+        cerr << "Error leyendo el archivo. Se esperaban " << input_size << " bytes, pero solo se leyeron " << bytesRead * sizeof(int) << " bytes." << endl;
+        return false;  // Si no se leen todos los datos correctamente, devolvemos false
+    }
+
+    // Verificamos si está ordenado
+    if (is_sorted(v.begin(), v.end())) {
+        cout << "El archivo está ordenado." << endl;
+        return true;
+    } else {
+        cout << "El archivo NO está ordenado." << endl;
+        return false;
+    }
+}
+
+
 // Función para imprimir los primeros N elementos de un archivo binario
-void printFirstElements(FILE* file, long elements) {
+void printFirstElements(FILE* file, long elements) {//, long input_size) {
     vector<int> buffer(elements);
     fseek(file, 0, SEEK_SET);
     size_t bytesRead = fread(buffer.data(), sizeof(int), elements, file);
@@ -150,19 +208,19 @@ void printFirstElements(FILE* file, long elements) {
     }
 
     cout << endl;
-    // Checking if vector v is sorted or not
+      // Checking if vector v is sorted or not
     if (is_sorted(buffer.begin(), buffer.end()))
-        cout << "Sorted";
+      cout << "Sorted";
     else
-        cout << "Not Sorted";
-
+      cout << "Not Sorted";
     cout << endl;
+
 }
 
 int main(int argc, char* argv[]) {
 
-    long N_SIZE = 20000000; // Este valor debe ser determinado por el archivo de entrada
-    int a = 41; // Número de particiones (se puede ajustar dependiendo de M y B)
+    long N_SIZE = 100000; // Este valor debe ser determinado por el archivo de entrada
+    int a = 12; // Número de particiones (se puede ajustar dependiendo de M y B)
     
     // Generar la secuencia aleatoria y guardarla en "input.bin"
     generate_sequence(N_SIZE, "input.bin", B_SIZE);
@@ -176,7 +234,9 @@ int main(int argc, char* argv[]) {
     }
 
     // Imprimir los primeros X elementos antes de ordenar
-    printFirstElements(file, 10);
+    printFirstElements(file, 10); //, N_SIZE); 
+    
+    //cout << "Sorted? " << check_sorted(file, N_SIZE) << endl;
 
     // Llamar al quicksort externo
     quicksort(file, N_SIZE, a, 0);
@@ -185,7 +245,8 @@ int main(int argc, char* argv[]) {
 
     // Imprimir los primeros X elementos después de ordenar
     fseek(file, 0, SEEK_SET);  // Volver al principio del archivo para leer de nuevo
-    printFirstElements(file, 25);
+    printFirstElements(file, 1000); //, N_SIZE);
+    //cout << "Sorted? " << check_sorted(file, N_SIZE) << endl;
 
     filesystem::remove("subarray_temp.bin"); // Eliminar el archivo temporal
 
