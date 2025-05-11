@@ -1,229 +1,262 @@
-//main args: 
-//argv[1] <- M_SIZE
-//argv[2] <- B_SIZE quiza lo podemos dejar fijo en 4096 
-
-//se define M_SIZE <- tamaño de la memoria principal: valor capturado desde los args
-//se define B_SIZE <- tamaño del bloque: como tamaño real de bloque en un disco (512B en discos viejos, 4069B en discos modernos)
-//se define N_SIZE <- tamaño del array que contiene a los elementos a ordenar (input)
-//se define a <- valor que se debe determinar acá y define: 1) aridad del mergesort 2) Número de particiones que se van a realizar en el algoritmo de quicksort
-
-//funcion que determina a
-//experimentalmente se busca el a optimo usando mergesort, luego de tenerlo ya queda fijo y se usa de ahí en adelante
-//por ello no forma parte del main
-
-//main:
-    
-    //for(int i = 0; i < 15; i++) {
-        //1) llamar a la función que genera los 5 archivos para un único tamaño N <- haciendo todo para no ocupar tanto espacio en disco
-
-        //2) llamado a mergesort sobre cada uno de los 5 archivos de tamaño N. 
-
-        //3) llamado a quicksort sobre cada uno de los 5 archivos de tamaño N. 
-
-        //4) promediar los resultados para ese N
-
-        //5) guardar los resultados en un archivo de salida (csv o txt)
-
-        //6) liberar memoria
-
-    //y más cosas a implementar...
-
+#include "mergesort.hpp"
 #include <iostream>
-#include <filesystem>
-#include <fstream>
 #include <chrono>
-#include <algorithm>
-#include "sequence_generator.hpp"
-#include "../headers/quicksort.hpp" 
-#include "../headers/mergesort.hpp"
+#include <random>
+#include <ctime>
+#include <cstring>
+#include <string>
+#include <vector>
 
-using namespace std;
+// Contador global para realizar seguimiento de las operaciones de I/O
+size_t disk_access_count = 0;
 
-//vector de 15 tamaños N
-vector<int> v = {4, 8, 12, 16, 20, 24}; //, 28, 32, 36, 40, 44, 48, 52, 56, 60};
-
-bool checkSorted(FILE* file, long input_size) {
-    /* Verifica si el archivo completo está ordenado
-    args:
-        file: puntero al archivo que se va a verificar
-        input_size: tamaño del archivo en bytes
-    returns:
-        true si el archivo está ordenado, false en caso contrario
-    */
-
-    long numElements = input_size / sizeof(int64_t);
-    if (numElements <= 0) {
-        cerr << "El tamaño del archivo no es suficiente para contener al menos un entero." << endl;
-        return false;
-    }
-
-    vector<int64_t> buffer(numElements);
-    fseek(file, 0, SEEK_SET);
-    size_t bytesRead = fread(buffer.data(), sizeof(int64_t), numElements, file);
-
-    /* //condición apagada para test grande
-    if (bytesRead * sizeof(int64_t) != input_size) {
-        cerr << "Error leyendo el archivo." << endl;
-        return false;
-    }
-    */
-
-    if (is_sorted(buffer.begin(), buffer.end())) {
-        cout << "✅ Ordenado" << endl;
-        return true;
-    } else {
-        cout << "❌ No ordenado" << endl;
-        return false;
-    }
-}
-
-struct AlgorithmResults {
-    /* Estructura para almacenar los resultados de los algoritmos, tiempo y accesos a disco respectivamente
-    campos:
-        merge_time_ms: tiempo de ejecución de mergesort en milisegundos
-        merge_disk_access: accesos a disco de mergesort
-        quick_time_ms: tiempo de ejecución de quicksort en milisegundos
-        quick_disk_access: accesos a disco de quicksort
-    returns:
-        struct // <- se almacena en los campos de la estructura
-    */
-    long long merge_time_ms;
-    long long merge_disk_access;
-    long long quick_time_ms;
-    long long quick_disk_access;
-};
-
-
-AlgorithmResults process_sequence(const std::string& filename, long N_SIZE, int a, long B_SIZE, long M_SIZE) {
-    AlgorithmResults results = {0, 0, 0, 0};
-    /*
-    Función para procesar la secuencia aleatoria generada (del tamaño definido como múltiplo de M), 
-    ejecutando los algoritmos de ordenamiento y midiendo el tiempo y accesos a disco
-    args:
-        filename: nombre del archivo con la secuencia a ordenar
-        N_SIZE: número total de bytes en el archivo
-        a: número de particiones que se crearán
-        B_SIZE: tamaño del bloque en bytes
-        M_SIZE: tamaño de la memoria principal en bytes
-    returns:
-        results: estructura AlgorithmResults con los resultados de los algoritmos
-    */
-    
-    cout << "------------------" << "Procesando archivo: " << filename << "------------------" << endl;
-
-    // --------------------------- MERGESORT ---------------------------
-    auto merge_start_time = std::chrono::high_resolution_clock::now();
-    int merge_sort_disk_access = run_mergesort(filename, N_SIZE, a, B_SIZE, M_SIZE);
-    auto merge_end_time = std::chrono::high_resolution_clock::now();
-    auto merge_duration = std::chrono::duration_cast<std::chrono::milliseconds>(merge_end_time - merge_start_time);
-    results.merge_time_ms = merge_duration.count();
-    results.merge_disk_access = merge_sort_disk_access;
-    std::cout << "MergeSort completado en " << results.merge_time_ms << " ms, con " 
-     << results.merge_disk_access << " accesos a disco" << std::endl;
-
-    // Check if the file is sorted
-    std::string sortedFilename = filename + ".sorted";
-    FILE* file = fopen(sortedFilename.c_str(), "rb");
+// Función para generar un archivo con números aleatorios
+void generateRandomFile(const char* filename, size_t numElements) {
+    FILE* file = fopen(filename, "wb");
     if (!file) {
-        cerr << "Error: No se pudo abrir el archivo " << filename << endl;
-        return results;
+        std::cerr << "Error creating file: " << filename << std::endl;
+        exit(1);
     }
-    bool _ = checkSorted(file, N_SIZE);
+
+    // Inicializar generador de números aleatorios
+    std::random_device rd;
+    std::mt19937_64 gen(rd());
+    std::uniform_int_distribution<int64_t> dist(
+        std::numeric_limits<int64_t>::min(), 
+        std::numeric_limits<int64_t>::max()
+    );
+
+    // Generar y escribir números en bloques
+    const size_t blockSize = 1024 * 1024 * 4; // Tamaño del bloque en bytes
+    std::vector<int64_t> buffer(blockSize);
+
+    for (size_t i = 0; i < numElements; i += blockSize) {
+        size_t elementsToWrite = std::min(blockSize, numElements - i);
+        
+        // Generar números aleatorios
+        for (size_t j = 0; j < elementsToWrite; j++) {
+            buffer[j] = dist(gen);
+        }
+        
+        // Escribir bloque
+        fwrite(buffer.data(), sizeof(int64_t), elementsToWrite, file);
+    }
+
     fclose(file);
-    
-
-    // --------------------------- QUICKSORT ---------------------------
-    // Start measuring time for quicksort
-    auto quick_start_time = std::chrono::high_resolution_clock::now();
-    
-    // Here we call run_quicksort and pass the necessary arguments
-    int quick_sort_disk_access = run_quicksort(filename, N_SIZE, a, B_SIZE, M_SIZE);
-    
-    // Stop measuring time
-    auto quick_end_time = std::chrono::high_resolution_clock::now();
-    
-    // Calculate duration in milliseconds
-    auto quick_duration = std::chrono::duration_cast<std::chrono::milliseconds>(quick_end_time - quick_start_time);
-    
-    // Store quicksort results
-    results.quick_time_ms = quick_duration.count();
-    results.quick_disk_access = quick_sort_disk_access;
-    
-    // Check if the file is sorted
-    FILE* file2 = fopen(filename.c_str(), "rb");
-    if (!file2) {
-        cerr << "Error: No se pudo abrir el archivo " << filename << endl;
-        return results;
-    }
-    bool __ = checkSorted(file2, N_SIZE);
-    fclose(file2);
-
-    // Print results
-    cout << "QuickSort completado en " << results.quick_time_ms << " ms, con " 
-         << results.quick_disk_access << " accesos a disco" << endl;
-         
-    return results;
 }
 
-int main(int argc, char* argv[]){
-    if (argc != 4) {
-        cerr << "Uso: " << argv[0]
-                  << " <M_SIZE MB> <B_SIZE bytes> <a particiones>\n";
-        return EXIT_FAILURE;
-    }
-
-    const int64_t M_BYTES = stol(argv[1]) * 1024L * 1024L; // Tamaño de la memoria principal en bytes
-    const size_t B_SIZE = stol(argv[2]); // Tamaño del bloque en bytes
-    const int a = stoi(argv[3]); // Número de particiones a realizar
+// Función para encontrar la mejor aridad para MergeSort usando búsqueda binaria
+size_t findBestArityForMergeSort(const char* inputFileName) {
+    std::cout << "Finding best arity for MergeSort..." << std::endl;
     
-    // Creación del archivo CSV para guardar los resultados
-    ofstream results_csv("sorting_results.csv");
-    if (!results_csv) {
-        cerr << "Error: No se pudo crear el archivo CSV de resultados.\n";
-        return EXIT_FAILURE;
-    }
+    // Calcular cuántos números de 64 bits caben en un bloque
+    const size_t elementsPerBlock = B / sizeof(int64_t);
     
-    // Encabezado del CSV
-    results_csv << "Size_MB,Repetition,N_elements,MergeSort_Time_ms,MergeSort_Disk_Access,"
-                << "QuickSort_Time_ms,QuickSort_Disk_Access\n";
-
-    for (size_t i = 0; i < v.size(); ++i){
-    // Recorremos el vector de tamaños N → 4,8,…,60
-        int mult = static_cast<int>((i + 1) * 4);      
-        int64_t N = static_cast<int64_t>(v[i]) * M_BYTES;
-
-        cout << "\n===  Multiplicador " << mult
-                  << " M  →  N = " << N << " bytes  ===\n";
-
-        for (int rep = 1; rep <= 5; ++rep){
-        // Generar  5  secuencias  de  números  enteros  de  64  bits  de  tamaño  total  𝑁  
-            ostringstream fn;
-            fn << "seq_" << setw(2) << setfill('0')
-               << mult << "M_rep" << rep << ".bin";
-
-            // 1. Generar archivo con secuencias aleatorias de int64_t                                                
-            generate_sequence(N, fn.str(), B_SIZE);
-
-            // 2. Procesar (algoritmos externos, medición, etc.)                  
-            AlgorithmResults results = process_sequence(fn.str(), N, a, B_SIZE, M_BYTES);
+    // Definir rango de búsqueda para la aridad
+    size_t min_a = 2;
+    size_t max_a = elementsPerBlock;  // La aridad máxima es el número de elementos por bloque
+    
+    size_t best_a = 2;
+    double best_time = std::numeric_limits<double>::max();
+    
+    // Búsqueda binaria para encontrar la mejor aridad
+    while (min_a <= max_a) {
+        size_t mid_a = min_a + (max_a - min_a) / 2;
+        
+        // Crear archivo temporal para la salida
+        const char* outputFileName = "binary_search_output.bin";
+        
+        // Medir tiempo con esta aridad
+        auto start = std::chrono::high_resolution_clock::now();
+        disk_access_count = 0;  // Reiniciar contador de accesos a disco
+        
+        performExternalMergeSort(inputFileName, outputFileName, mid_a);
+        
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> diff = end - start;
+        
+        std::cout << "Tested arity " << mid_a << ": " << diff.count() << " seconds, " 
+                  << disk_access_count << " disk accesses" << std::endl;
+        
+        // Actualizar mejor aridad si es necesario
+        if (diff.count() < best_time) {
+            best_time = diff.count();
+            best_a = mid_a;
             
-            // Save results to CSV
-            results_csv << mult*stol(argv[1]) << "," << rep << "," << N << "," 
-                        << results.merge_time_ms << "," << results.merge_disk_access << ","
-                        << results.quick_time_ms << "," << results.quick_disk_access << "\n";
-                        
-            cout << "Archivo " << fn.str() << " procesado.\n";
-            
-            // 3. Borrar para liberar espacio                                     
-            filesystem::remove(fn.str());
-            filesystem::remove(fn.str()+".sorted");
-            break;
+            // Si estamos explorando la primera mitad
+            if (mid_a < max_a) {
+                max_a = mid_a - 1;
+            } else {
+                // Si estamos explorando la segunda mitad
+                min_a = mid_a + 1;
+            }
+        } else {
+            // Si el tiempo está empeorando
+            if (mid_a > best_a) {
+                max_a = mid_a - 1;
+            } else {
+                min_a = mid_a + 1;
+            }
         }
-        break;
+        
+        // Eliminar archivo temporal
+        remove(outputFileName);
+    }
+    
+    std::cout << "Best arity found: " << best_a << " with time: " << best_time << " seconds" << std::endl;
+    return best_a;
+}
+
+// Función principal
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        std::cout << "Usage: " << argv[0] << " [find-arity | run-tests]" << std::endl;
+        return 1;
     }
 
-    // Fin del experimento
-    results_csv.close();
-    cout << "\n✓ Experimento completo. Resultados guardados en sorting_results.csv" << endl;
-    return EXIT_SUCCESS;
+    // Comando para encontrar la mejor aridad
+    if (strcmp(argv[1], "find-arity") == 0) {
+        // Generar archivo grande (60M elementos)
+        const size_t largeSize = 60 * 1024 * 1024 / sizeof(int64_t);  // 60M/8 = 7.5M números de 64 bits
+        const char* largefile = "large_test.bin";
+        
+        std::cout << "Generating large test file with " << largeSize << " elements..." << std::endl;
+        generateRandomFile(largefile, largeSize);
+        
+        size_t best_arity = findBestArityForMergeSort(largefile);
+        std::cout << "Optimal arity for MergeSort: " << best_arity << std::endl;
+        
+        // Limpiar archivos temporales
+        remove(largefile);
+        
+        return 0;
+    }
+    
+    // Comando para ejecutar las pruebas
+    else if (strcmp(argv[1], "run-tests") == 0) {
+        if (argc < 3) {
+            std::cout << "Please specify arity for tests" << std::endl;
+            return 1;
+        }
+        
+        size_t arity = std::stoul(argv[2]);
+        std::cout << "Running tests with arity: " << arity << std::endl;
+        
+        // Tamaños de prueba: 4M, 8M, ..., 60M (en bytes)
+        const std::vector<size_t> testSizes = {
+            4 * 1024 * 1024, 8 * 1024 * 1024, 12 * 1024 * 1024, 16 * 1024 * 1024, 
+            20 * 1024 * 1024, 24 * 1024 * 1024, 28 * 1024 * 1024, 32 * 1024 * 1024,
+            36 * 1024 * 1024, 40 * 1024 * 1024, 44 * 1024 * 1024, 48 * 1024 * 1024,
+            52 * 1024 * 1024, 56 * 1024 * 1024, 60 * 1024 * 1024
+        };
+        
+        // Resultados: [tamaño][algoritmo][repetición]
+        std::vector<std::vector<std::vector<std::pair<double, size_t>>>> results(
+            testSizes.size(),
+            std::vector<std::vector<std::pair<double, size_t>>>(
+                2,  // 2 algoritmos: MergeSort y QuickSort
+                std::vector<std::pair<double, size_t>>(5)  // 5 repeticiones
+            )
+        );
+        
+        // Para cada tamaño de prueba
+        for (size_t sizeIdx = 0; sizeIdx < testSizes.size(); sizeIdx++) {
+            size_t testSize = testSizes[sizeIdx];
+            size_t numElements = testSize / sizeof(int64_t);
+            
+            std::cout << "\nTesting size: " << testSize / (1024 * 1024) << "MB (" 
+                      << numElements << " elements)" << std::endl;
+            
+            // Realizar 5 repeticiones para cada algoritmo
+            for (int rep = 0; rep < 5; rep++) {
+                std::cout << "  Repetition " << rep + 1 << ":" << std::endl;
+                
+                // Generar archivo de prueba
+                std::string inputFile = "test_input_" + std::to_string(sizeIdx) + "_" + std::to_string(rep) + ".bin";
+                std::string mergeOutput = "merge_output_" + std::to_string(sizeIdx) + "_" + std::to_string(rep) + ".bin";
+                std::string quickOutput = "quick_output_" + std::to_string(sizeIdx) + "_" + std::to_string(rep) + ".bin";
+                
+                generateRandomFile(inputFile.c_str(), numElements);
+                
+                // Test MergeSort
+                std::cout << "    Testing MergeSort... " << std::flush;
+                auto mergeStart = std::chrono::high_resolution_clock::now();
+                disk_access_count = 0;
+                
+                performExternalMergeSort(inputFile.c_str(), mergeOutput.c_str(), arity);
+                
+                auto mergeEnd = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double> mergeDiff = mergeEnd - mergeStart;
+                
+                bool mergeSorted = checkSorted(mergeOutput);
+                std::cout << (mergeSorted ? "OK" : "FAILED") << " - Time: " << mergeDiff.count() 
+                          << "s, Disk accesses: " << disk_access_count << std::endl;
+                
+                results[sizeIdx][0][rep] = {mergeDiff.count(), disk_access_count};
+                
+                // Test QuickSort (asumimos que ya está implementado en otro archivo)
+                // Aquí deberías incluir la llamada a tu implementación de QuickSort externo
+                /* Ejemplo:
+                std::cout << "    Testing QuickSort... " << std::flush;
+                auto quickStart = std::chrono::high_resolution_clock::now();
+                disk_access_count = 0;
+                
+                performExternalQuickSort(inputFile.c_str(), quickOutput.c_str(), arity - 1);  // a-1 pivotes
+                
+                auto quickEnd = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double> quickDiff = quickEnd - quickStart;
+                
+                bool quickSorted = checkSorted(quickOutput);
+                std::cout << (quickSorted ? "OK" : "FAILED") << " - Time: " << quickDiff.count() 
+                          << "s, Disk accesses: " << disk_access_count << std::endl;
+                
+                results[sizeIdx][1][rep] = {quickDiff.count(), disk_access_count};
+                */
+                
+                // Limpiar archivos temporales
+                remove(inputFile.c_str());
+                remove(mergeOutput.c_str());
+                remove(quickOutput.c_str());
+            }
+        }
+        
+        // Calcular y mostrar promedios
+        std::cout << "\n--- RESULTS SUMMARY ---" << std::endl;
+        std::cout << "Size(MB),MergeSort_Time(s),MergeSort_IO,QuickSort_Time(s),QuickSort_IO" << std::endl;
+        
+        for (size_t sizeIdx = 0; sizeIdx < testSizes.size(); sizeIdx++) {
+            double avgMergeTime = 0, avgQuickTime = 0;
+            size_t avgMergeIO = 0, avgQuickIO = 0;
+            
+            // Calcular promedio para MergeSort
+            for (int rep = 0; rep < 5; rep++) {
+                avgMergeTime += results[sizeIdx][0][rep].first;
+                avgMergeIO += results[sizeIdx][0][rep].second;
+                
+                // Descomentar cuando se implemente QuickSort
+                /*
+                avgQuickTime += results[sizeIdx][1][rep].first;
+                avgQuickIO += results[sizeIdx][1][rep].second;
+                */
+            }
+            
+            avgMergeTime /= 5;
+            avgMergeIO /= 5;
+            avgQuickTime /= 5;
+            avgQuickIO /= 5;
+            
+            std::cout << testSizes[sizeIdx] / (1024 * 1024) << ","
+                      << avgMergeTime << ","
+                      << avgMergeIO << ","
+                      << avgQuickTime << ","
+                      << avgQuickIO << std::endl;
+        }
+        
+        return 0;
+    }
+    
+    else {
+        std::cout << "Unknown command: " << argv[1] << std::endl;
+        return 1;
+    }
 }

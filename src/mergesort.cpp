@@ -1,564 +1,320 @@
-#include <iostream>
-#include <fstream>
-#include <vector>
+#include "mergesort.hpp"
 #include <algorithm>
-#include <ctime>
-#include <cstdint>
-#include <string>
-#include <chrono>
-#include <random>
+#include <iostream>
+#include <cstring>
+#include <vector>
 #include <queue>
+#include <string>
+#include <memory>
 #include <limits>
-#include <filesystem>
-#include "../headers/mergesort.hpp"
+#include <cassert>
 
-/**
- * Estructura para mantener el seguimiento de operaciones de I/O
- */
-struct IOCounter {
-    size_t reads = 0;
-    size_t writes = 0;
-    
-    void reset() {
-        reads = 0;
-        writes = 0;
-    }
-};
+// Estructura para manejar buffers en el merge
+struct BufferHandler {
+    std::vector<int64_t> buffer;  // Buffer para almacenar datos
+    size_t position;              // Posición actual en el buffer
+    FILE* file;                   // Archivo de donde se lee
+    bool empty;                   // Indica si no hay más datos para leer
 
-// Contador global para operaciones I/O
-IOCounter io_counter;
+    BufferHandler(FILE* f) : position(0), file(f), empty(false) {
+        buffer.resize(B / sizeof(int64_t));
+    }
 
-/**
- * Estructura para representar un elemento en la cola de prioridad durante la unión
- */
-struct QueueElement {
-    int64_t value;
-    size_t run_index;
-    
-    // Operador de comparación para la cola de prioridad (min-heap)
-    bool operator>(const QueueElement& other) const {
-        return value > other.value;
+    // Obtiene el siguiente valor del buffer
+    int64_t next() {
+        if (position >= buffer.size() || empty) {
+            return std::numeric_limits<int64_t>::max();
+        }
+        return buffer[position++];
     }
-};
 
-/**
- * Clase para manejar operaciones de archivo con buffer
- */
-class BufferedFile {
-private:
-    std::fstream file;
-    std::vector<int64_t> buffer;
-    size_t buffer_pos;
-    size_t buffer_size;
-    bool is_read_mode;
-    
-public:
-    BufferedFile(const std::string& filename, bool read_mode, size_t buffer_size = 4096 / sizeof(int64_t)) 
-        : buffer(buffer_size), buffer_pos(0), buffer_size(buffer_size), is_read_mode(read_mode) {
-        
-        if (read_mode) {
-            file.open(filename, std::ios::in | std::ios::binary);
-        } else {
-            file.open(filename, std::ios::out | std::ios::binary);
-        }
-        
-        if (!file) {
-            throw std::runtime_error("Error al abrir el archivo: " + filename);
-        }
-        
-        if (read_mode) {
-            // Inicialmente el buffer está vacío para lectura
-            buffer_pos = buffer_size;
-        }
+    // Verifica si hay más elementos disponibles
+    bool hasNext() {
+        return !empty && position < buffer.size();
     }
-    
-    ~BufferedFile() {
-        if (!is_read_mode && buffer_pos > 0) {
-            // Escribir cualquier dato restante en el buffer
-            file.write(reinterpret_cast<char*>(buffer.data()), buffer_pos * sizeof(int64_t));
-            io_counter.writes++;
-        }
-        file.close();
-    }
-    
-    // Lee un bloque completo y devuelve cuántos elementos se leyeron realmente
-    size_t readBlock(std::vector<int64_t>& dest, size_t count) {
-        size_t read_count = 0;
+
+    // Recarga el buffer desde el archivo
+    bool reload() {
+        if (empty) return false;
         
-        while (read_count < count) {
-            // Si el buffer está vacío, llenarlo
-            if (buffer_pos >= buffer_size) {
-                file.read(reinterpret_cast<char*>(buffer.data()), buffer_size * sizeof(int64_t));
-                size_t elements_read = file.gcount() / sizeof(int64_t);
-                if (elements_read == 0) {
-                    break;  // Fin de archivo
-                }
-                buffer_pos = 0;
-                io_counter.reads++;
-            }
-            
-            // Copiar datos del buffer al destino
-            size_t available = std::min(buffer_size - buffer_pos, count - read_count);
-            std::copy(buffer.begin() + buffer_pos, buffer.begin() + buffer_pos + available, 
-                    dest.begin() + read_count);
-            
-            buffer_pos += available;
-            read_count += available;
+        position = 0;
+        size_t itemsRead = fread(buffer.data(), sizeof(int64_t), buffer.size(), file);
+        
+        if (itemsRead == 0) {
+            empty = true;
+            return false;
         }
         
-        return read_count;
-    }
-    
-    // Lee un solo elemento
-    bool readElement(int64_t& value) {
-        if (buffer_pos >= buffer_size) {
-            file.read(reinterpret_cast<char*>(buffer.data()), buffer_size * sizeof(int64_t));
-            size_t elements_read = file.gcount() / sizeof(int64_t);
-            if (elements_read == 0) {
-                return false;  // Fin de archivo
-            }
-            buffer_pos = 0;
-            io_counter.reads++;
+        // Si leímos menos elementos que el tamaño del buffer, ajustamos el tamaño
+        if (itemsRead < buffer.size()) {
+            buffer.resize(itemsRead);
         }
         
-        value = buffer[buffer_pos++];
         return true;
     }
-    
-    // Escribe un bloque completo
-    void writeBlock(const std::vector<int64_t>& src, size_t count) {
-        size_t written = 0;
-        
-        while (written < count) {
-            // Si el buffer está lleno, vaciarlo
-            if (buffer_pos >= buffer_size) {
-                file.write(reinterpret_cast<const char*>(buffer.data()), buffer_size * sizeof(int64_t));
-                buffer_pos = 0;
-                io_counter.writes++;
-            }
-            
-            // Copiar datos del origen al buffer
-            size_t available = std::min(buffer_size - buffer_pos, count - written);
-            std::copy(src.begin() + written, src.begin() + written + available, 
-                   buffer.begin() + buffer_pos);
-            
-            buffer_pos += available;
-            written += available;
-        }
-    }
-    
-    // Escribe un solo elemento
-    void writeElement(int64_t value) {
-        if (buffer_pos >= buffer_size) {
-            file.write(reinterpret_cast<const char*>(buffer.data()), buffer_size * sizeof(int64_t));
-            buffer_pos = 0;
-            io_counter.writes++;
-        }
-        
-        buffer[buffer_pos++] = value;
-    }
-    
-    // Posiciona el puntero del archivo
-    void seek(size_t position) {
-        // Vaciar o invalidar el buffer
-        if (!is_read_mode && buffer_pos > 0) {
-            file.write(reinterpret_cast<char*>(buffer.data()), buffer_pos * sizeof(int64_t));
-            io_counter.writes++;
-        }
-        buffer_pos = buffer_size; // Invalidar buffer
-        
-        file.seekg(position * sizeof(int64_t), std::ios::beg);
-        file.seekp(position * sizeof(int64_t), std::ios::beg);
-    }
-    
-    // Obtiene la posición actual del archivo
-    size_t tell() {
-        std::streampos file_pos;
-        if (is_read_mode) {
-            file_pos = file.tellg();
-        } else {
-            file_pos = file.tellp();
-        }
-        
-        return file_pos / sizeof(int64_t);
-    }
 };
 
-/**
- * Genera un archivo con enteros aleatorios
- */
-void createRandomFile(const std::string& filename, size_t num_elements) {
-    std::ofstream output(filename, std::ios::binary);
-    if (!output) {
-        throw std::runtime_error("No se pudo crear el archivo");
+// Función para leer un bloque de tamaño B desde el archivo
+bool readBlock(FILE* file, std::vector<int64_t>& buffer) {
+    if (!file) return false;
+    
+    // Calcular cuántos elementos de 64 bits caben en un bloque de tamaño B
+    size_t elementsPerBlock = B / sizeof(int64_t);
+    buffer.resize(elementsPerBlock);
+    
+    // Leer el bloque
+    size_t elementsRead = fread(buffer.data(), sizeof(int64_t), elementsPerBlock, file);
+    
+    // Ajustar el tamaño del buffer si leímos menos elementos
+    if (elementsRead < elementsPerBlock) {
+        buffer.resize(elementsRead);
     }
     
-    // Crear buffer para escrituras en bloque
-    size_t block_size = 4096 / sizeof(int64_t); // Tamaño típico de bloque
-    std::vector<int64_t> buffer(block_size);
+    return elementsRead > 0;
+}
+
+// Función para escribir un bloque al archivo
+void writeBlock(FILE* file, const std::vector<int64_t>& buffer) {
+    if (!file) return;
     
-    // Inicializar generador de números aleatorios
-    std::random_device rd;
-    std::mt19937_64 gen(rd());
-    std::uniform_int_distribution<int64_t> dist(INT64_MIN, INT64_MAX);
+    // Escribir el bloque completo
+    fwrite(buffer.data(), sizeof(int64_t), buffer.size(), file);
+}
+
+// Función de fusión de varios bloques ordenados con aridad 'a'
+void mergeBlocks(FILE* output, std::vector<FILE*>& inputFiles) {
+    const size_t bufferSize = B / sizeof(int64_t);
+    std::vector<int64_t> outputBuffer;
+    outputBuffer.reserve(bufferSize);
     
-    // Escribir números aleatorios en bloques
-    size_t remaining = num_elements;
-    while (remaining > 0) {
-        size_t current_block = std::min(remaining, block_size);
+    // Crear handlers para cada archivo de entrada
+    std::vector<std::unique_ptr<BufferHandler>> handlers;
+    for (FILE* file : inputFiles) {
+        handlers.push_back(std::make_unique<BufferHandler>(file));
+        handlers.back()->reload();  // Cargar datos iniciales
+    }
+    
+    // Usar una cola de prioridad para encontrar el mínimo elemento
+    auto compare = [&handlers](size_t a, size_t b) {
+        return handlers[a]->next() > handlers[b]->next();
+    };
+    
+    // Realizar el merge mientras haya elementos
+    bool hasMoreData = true;
+    while (hasMoreData) {
+        hasMoreData = false;
         
-        // Llenar buffer con enteros aleatorios de 64 bits
-        for (size_t i = 0; i < current_block; i++) {
-            buffer[i] = dist(gen);
+        // Encontrar el elemento mínimo entre todos los buffers
+        int64_t minValue = std::numeric_limits<int64_t>::max();
+        size_t minIndex = handlers.size();
+        
+        for (size_t i = 0; i < handlers.size(); i++) {
+            if (handlers[i]->hasNext()) {
+                hasMoreData = true;
+                int64_t value = handlers[i]->buffer[handlers[i]->position];
+                if (value < minValue) {
+                    minValue = value;
+                    minIndex = i;
+                }
+            } else if (!handlers[i]->empty) {
+                // Recargar buffer si está vacío pero el archivo aún tiene datos
+                if (handlers[i]->reload()) {
+                    hasMoreData = true;
+                    int64_t value = handlers[i]->buffer[handlers[i]->position];
+                    if (value < minValue) {
+                        minValue = value;
+                        minIndex = i;
+                    }
+                }
+            }
         }
         
-        // Escribir buffer al archivo
-        output.write(reinterpret_cast<char*>(buffer.data()), current_block * sizeof(int64_t));
-        remaining -= current_block;
-    }
-    
-    output.close();
-}
-
-/**
- * Ordena un bloque en memoria
- */
-void sortBlock(std::vector<int64_t>& buffer, size_t size) {
-    std::sort(buffer.begin(), buffer.begin() + size);
-}
-
-/**
- * Une múltiples ejecuciones ordenadas
- */
-void mergeRuns(const std::string& input_filename, const std::string& output_filename,
-               size_t total_elements, size_t run_size, size_t num_runs_to_merge,
-               size_t block_size) {
-    
-    // Calcular número real de ejecuciones
-    size_t num_runs = (total_elements + run_size - 1) / run_size;
-    
-    // Procesar ejecuciones en grupos de num_runs_to_merge
-    for (size_t base_run = 0; base_run < num_runs; base_run += num_runs_to_merge) {
-        size_t runs_in_this_merge = std::min(num_runs_to_merge, num_runs - base_run);
-        
-        try {
-            // Abrir archivos
-            BufferedFile input_file(input_filename, true, block_size);
-            BufferedFile output_file(output_filename, false, block_size);
+        // Si encontramos un elemento mínimo, lo agregamos al buffer de salida
+        if (minIndex < handlers.size()) {
+            outputBuffer.push_back(minValue);
+            handlers[minIndex]->position++;
             
-            // Estructuras para unir las ejecuciones
-            std::vector<std::vector<int64_t>> run_buffers(runs_in_this_merge);
-            std::vector<size_t> buffer_positions(runs_in_this_merge, 0);
-            std::vector<size_t> elements_processed(runs_in_this_merge, 0);
-            std::vector<size_t> run_sizes(runs_in_this_merge);
-            
-            // Inicializar buffers y cargar el primer bloque de cada ejecución
-            for (size_t i = 0; i < runs_in_this_merge; i++) {
-                // Calcular posición y tamaño de esta ejecución
-                size_t run_start = (base_run + i) * run_size;
-                run_sizes[i] = std::min(run_size, total_elements - run_start);
-                
-                try {
-                    run_buffers[i].resize(block_size);
-                    
-                    input_file.seek(run_start);
-                    
-                    size_t elements_to_read = std::min(run_sizes[i], block_size);
-                    
-                    size_t elements_read = input_file.readBlock(run_buffers[i], elements_to_read);
-                    
-                    if (elements_read == 0) {
-                        run_sizes[i] = 0;  // Ejecución vacía
-                    }
-                } catch (const std::exception& e) {
-                    throw;
-                }
+            // Si el buffer de salida está lleno, lo escribimos a disco
+            if (outputBuffer.size() >= bufferSize) {
+                writeBlock(output, outputBuffer);
+                outputBuffer.clear();
             }
-            
-            // Cola de prioridad para la unión
-            std::priority_queue<QueueElement, std::vector<QueueElement>, std::greater<QueueElement>> pq;
-            
-            // Inicializar cola con el primer elemento de cada ejecución
-            for (size_t i = 0; i < runs_in_this_merge; i++) {
-                if (run_sizes[i] > 0) {
-                    pq.push({run_buffers[i][0], i});
-                    buffer_positions[i] = 1;
-                }
-            }
-            
-            size_t elements_merged = 0;
-            
-            // Realizar la unión
-            while (!pq.empty()) {
-                QueueElement min_element = pq.top();
-                pq.pop();
-                
-                // Escribir el valor mínimo al archivo de salida
-                output_file.writeElement(min_element.value);
-                elements_merged++;
-                
-                size_t run_idx = min_element.run_index;
-                size_t run_start = (base_run + run_idx) * run_size;
-                
-                // Incrementar contador de elementos procesados de esta ejecución
-                elements_processed[run_idx]++;
-                
-                // Si terminamos con el buffer actual, cargar más datos de esta ejecución
-                if (buffer_positions[run_idx] >= run_buffers[run_idx].size() || 
-                    buffer_positions[run_idx] >= block_size) {
-                    
-                    // Si aún hay más elementos en esta ejecución, cargarlos
-                    if (elements_processed[run_idx] < run_sizes[run_idx]) {
-                        try {
-                            // Calcular posición absoluta en el archivo
-                            size_t absolute_position = run_start + elements_processed[run_idx];
-                            input_file.seek(absolute_position);
-                            
-                            // Calcular cuántos elementos quedan por leer en esta ejecución
-                            size_t elements_remaining = run_sizes[run_idx] - elements_processed[run_idx];
-                            size_t elements_to_read = std::min(block_size, elements_remaining);
-                            
-                            // Leer el siguiente bloque
-                            size_t elements_read = input_file.readBlock(run_buffers[run_idx], elements_to_read);
-                            
-                            if (elements_read > 0) {
-                                // Resetear posición en el buffer y añadir elemento a la cola
-                                buffer_positions[run_idx] = 1;  // Ya usaremos el primer elemento
-                                pq.push({run_buffers[run_idx][0], run_idx});
-                            } else {
-                                // Marcar esta ejecución como completada
-                                elements_processed[run_idx] = run_sizes[run_idx];
-                            }
-                        } catch (const std::exception& e) {
-                            throw;
-                        }
-                    }
-                } else {
-                    // Todavía hay elementos en el buffer, usar el siguiente
-                    int64_t next_value = run_buffers[run_idx][buffer_positions[run_idx]];
-                    pq.push({next_value, run_idx});
-                    buffer_positions[run_idx]++;
-                }
-            }
-        } catch (const std::exception& e) {
-            throw;
         }
     }
+    
+    // Escribir el resto del buffer de salida si quedan elementos
+    if (!outputBuffer.empty()) {
+        writeBlock(output, outputBuffer);
+    }
 }
 
-/**
- * Implementación del algoritmo Mergesort Externo
- */
-void externalMergeSort(const std::string& input_filename, const std::string& output_filename,
-                      size_t memory_size, size_t block_size, size_t max_runs_to_merge) {
+// Función para realizar el MergeSort Externo con aridad a
+void externalMergeSort(FILE* inputFile, FILE* outputFile, size_t start, size_t end, size_t a) {
+    // Calcular el tamaño total en bytes
+    fseek(inputFile, 0, SEEK_END);
+    size_t fileSize = ftell(inputFile);
+    size_t totalElements = fileSize / sizeof(int64_t);
     
-    // Determinar tamaño total del archivo
-    std::ifstream input_file(input_filename, std::ios::binary | std::ios::ate);
-    if (!input_file) {
-        throw std::runtime_error("No se pudo abrir el archivo de entrada");
-    }
-    
-    size_t file_size_bytes = input_file.tellg();
-    std::cout << "Tamaño del archivo: " << file_size_bytes << " bytes" << std::endl;
-    size_t total_elements = file_size_bytes / sizeof(int64_t);
-    input_file.close();
-    
-    // Si el archivo cabe en memoria, ordenarlo directamente
-    if (total_elements * sizeof(int64_t) <= memory_size) {
-        std::vector<int64_t> buffer(total_elements);
+    // Si el archivo es suficientemente pequeño para caber en memoria, ordenarlo directamente
+    if (totalElements * sizeof(int64_t) <= M) {
+        std::vector<int64_t> buffer;
+        buffer.reserve(totalElements);
         
-        std::ifstream in_file(input_filename, std::ios::binary);
-        in_file.read(reinterpret_cast<char*>(buffer.data()), total_elements * sizeof(int64_t));
-        io_counter.reads++;
-        in_file.close();
+        // Leer todo el archivo
+        fseek(inputFile, 0, SEEK_SET);
+        for (size_t i = 0; i < totalElements; i += B / sizeof(int64_t)) {
+            std::vector<int64_t> tempBuffer;
+            readBlock(inputFile, tempBuffer);
+            buffer.insert(buffer.end(), tempBuffer.begin(), tempBuffer.end());
+        }
         
-        sortBlock(buffer, total_elements);
+        // Ordenar en memoria
+        std::sort(buffer.begin(), buffer.end());
         
-        std::ofstream out_file(output_filename, std::ios::binary);
-        out_file.write(reinterpret_cast<char*>(buffer.data()), total_elements * sizeof(int64_t));
-        io_counter.writes++;
-        out_file.close();
+        // Escribir de vuelta ordenado
+        fseek(outputFile, 0, SEEK_SET);
+        for (size_t i = 0; i < buffer.size(); i += B / sizeof(int64_t)) {
+            size_t blockSize = std::min(B / sizeof(int64_t), buffer.size() - i);
+            std::vector<int64_t> tempBuffer(buffer.begin() + i, buffer.begin() + i + blockSize);
+            writeBlock(outputFile, tempBuffer);
+        }
         
         return;
     }
     
-    // Fase 1: Crear ejecuciones ordenadas
-    // Calcular M - tamaño que podemos ordenar en memoria a la vez
-    size_t M = memory_size / sizeof(int64_t);
+    // Crear archivos temporales para las particiones
+    std::vector<FILE*> tempFiles;
+    std::vector<std::string> tempFileNames;
     
-    // Generar ejecuciones iniciales ordenadas
-    const std::string temp_runs_file = "temp_runs.bin";
-    BufferedFile in_file(input_filename, true, block_size);
-    BufferedFile runs_file(temp_runs_file, false, block_size);
+    // Calcular tamaño aproximado de cada partición
+    size_t partitionSize = (totalElements + a - 1) / a;
     
-    std::vector<int64_t> buffer(M);
-    size_t runs_created = 0;
-    size_t elements_left = total_elements;
-    
-    while (elements_left > 0) {
-        // Determinar tamaño de esta ejecución
-        size_t run_size = std::min(elements_left, M);
-        
-        // Leer elementos para esta ejecución
-        size_t elements_read = in_file.readBlock(buffer, run_size);
-        
-        // Ordenar la ejecución en memoria
-        sortBlock(buffer, elements_read);
-        
-        // Escribir ejecución ordenada de vuelta al disco
-        runs_file.writeBlock(buffer, elements_read);
-        
-        elements_left -= elements_read;
-        runs_created++;
-    }
-    
-    // Fase 2: Unir las ejecuciones
-    // Calcular el número máximo de ejecuciones que podemos unir a la vez
-    if (max_runs_to_merge == 0) {
-        // Necesitamos 1 buffer de bloque para cada ejecución de entrada y 1 para la salida
-        max_runs_to_merge = (memory_size / sizeof(int64_t) / block_size) - 1;
-        if (max_runs_to_merge < 2) max_runs_to_merge = 2;  // Mínimo 2 ejecuciones para unir
-    }
-    
-    // Unir iterativamente ejecuciones hasta tener solo una
-    std::string input_file_name = temp_runs_file;
-    std::string output_file_name = "temp_merged.bin";
-    std::string temp;
-    size_t run_size = M;
-    
-    while (runs_created > 1) {
-        mergeRuns(input_file_name, output_file_name, total_elements, run_size, max_runs_to_merge, block_size);
-        
-        // Intercambiar entrada y salida para la siguiente iteración
-        temp = input_file_name;
-        input_file_name = output_file_name;
-        output_file_name = (temp == temp_runs_file) ? "temp_merged.bin" : temp_runs_file;
-        
-        // Actualizar tamaño de ejecución y conteo para la siguiente iteración
-        run_size *= max_runs_to_merge;
-        runs_created = (runs_created + max_runs_to_merge - 1) / max_runs_to_merge;
-    }
-    
-    // Renombrar el archivo de salida final al nombre de salida solicitado
-    if (input_file_name != output_filename) {
-        std::ifstream src(input_file_name, std::ios::binary);
-        std::ofstream dst(output_filename, std::ios::binary);
-        
-        dst << src.rdbuf();
-        
-        src.close();
-        dst.close();
-        
-        // Eliminar el archivo temporal
-        std::remove(input_file_name.c_str());
-    }
-    
-    // Limpiar archivos temporales restantes
-    if (std::string(temp_runs_file) != output_filename) {
-        std::remove(temp_runs_file.c_str());
-    }
-    if (std::string("temp_merged.bin") != output_filename) {
-        std::remove("temp_merged.bin");
-    }
-}
-
-/**
- * Encuentra el valor óptimo de 'a' (aridad)
- */
-size_t findOptimalA(const std::string& input_filename, size_t memory_size, size_t block_size) {
-    // Determinar el tamaño total del archivo
-    std::ifstream input_file(input_filename, std::ios::binary | std::ios::ate);
-    if (!input_file) {
-        throw std::runtime_error("No se pudo abrir el archivo de entrada");
-    }
-    
-    size_t file_size_bytes = input_file.tellg();
-    size_t total_elements = file_size_bytes / sizeof(int64_t);
-    input_file.close();
-    
-    // Número máximo de enteros de 64 bits en un bloque
-    size_t b = block_size / sizeof(int64_t);
-    if (b == 0) b = 1;  // Asegurar al menos 1 elemento por bloque
-    
-    // Búsqueda binaria para 'a' óptimo
-    size_t left = 2;
-    size_t right = b;
-    size_t best_a = 2;
-    size_t min_io = std::numeric_limits<size_t>::max();
-    
-    // Para cada valor candidato de 'a', ejecutar el algoritmo y medir IOs
-    while (left <= right) {
-        size_t mid = left + (right - left) / 2;
-        
-        // Resetear contador IO
-        io_counter.reset();
-        
-        // Crear una copia del archivo de entrada para preservar el original
-        const std::string temp_input = "temp_input_copy.bin";
-        std::ifstream src(input_filename, std::ios::binary);
-        std::ofstream dst(temp_input, std::ios::binary);
-        dst << src.rdbuf();
-        src.close();
-        dst.close();
-        
-        // Ejecutar Merge Sort con este valor de 'a'
-        const std::string temp_output = "temp_output.bin";
-        
-        // Comprobar si este 'a' requiere más memoria de la disponible
-        size_t old_max_runs = (memory_size / sizeof(int64_t) / block_size) - 1;
-        if (mid > old_max_runs) {
-            std::remove(temp_input.c_str());
-            left = mid + 1;
-            continue;
+    // Crear archivos temporales
+    for (size_t i = 0; i < a; i++) {
+        std::string tempFileName = "temp_" + std::to_string(i) + ".bin";
+        tempFileNames.push_back(tempFileName);
+        FILE* tempFile = fopen(tempFileName.c_str(), "wb+");
+        if (!tempFile) {
+            std::cerr << "Error creating temporary file: " << tempFileName << std::endl;
+            exit(1);
         }
+        tempFiles.push_back(tempFile);
+    }
+    
+    // Distribuir los elementos en los archivos temporales
+    fseek(inputFile, 0, SEEK_SET);
+    for (size_t i = 0; i < a; i++) {
+        size_t elementsToRead = std::min(partitionSize, totalElements - i * partitionSize);
         
-        // Ejecutar el merge sort externo con este valor de 'a'
-        externalMergeSort(temp_input, temp_output, memory_size, block_size, mid);
-        
-        // Comprobar si este 'a' es mejor
-        if (io_counter.reads + io_counter.writes < min_io) {
-            min_io = io_counter.reads + io_counter.writes;
-            best_a = mid;
-        }
-        
-        // Limpiar archivos temporales
-        std::remove(temp_input.c_str());
-        std::remove(temp_output.c_str());
-        
-        // Continuar búsqueda binaria
-        if (min_io == io_counter.reads + io_counter.writes) {
-            // Si el rendimiento mejora o se mantiene igual, probar un 'a' mayor
-            left = mid + 1;
+        // Si esta partición cabe en memoria, la ordenamos directamente
+        if (elementsToRead * sizeof(int64_t) <= M) {
+            std::vector<int64_t> buffer;
+            buffer.reserve(elementsToRead);
+            
+            // Leer la partición
+            for (size_t j = 0; j < elementsToRead; j += B / sizeof(int64_t)) {
+                std::vector<int64_t> tempBuffer;
+                readBlock(inputFile, tempBuffer);
+                buffer.insert(buffer.end(), tempBuffer.begin(), tempBuffer.end());
+            }
+            
+            // Ordenar en memoria
+            std::sort(buffer.begin(), buffer.end());
+            
+            // Escribir ordenado al archivo temporal
+            fseek(tempFiles[i], 0, SEEK_SET);
+            for (size_t j = 0; j < buffer.size(); j += B / sizeof(int64_t)) {
+                size_t blockSize = std::min(B / sizeof(int64_t), buffer.size() - j);
+                std::vector<int64_t> tempBuffer(buffer.begin() + j, buffer.begin() + j + blockSize);
+                writeBlock(tempFiles[i], tempBuffer);
+            }
         } else {
-            // Si el rendimiento empeoró, probar un 'a' menor
-            right = mid - 1;
+            // Si no cabe en memoria, crear un archivo temporal para esta partición
+            // y llamar recursivamente a externalMergeSort
+            std::string subTempFileName = "sub_temp_" + std::to_string(i) + ".bin";
+            FILE* subTempFile = fopen(subTempFileName.c_str(), "wb+");
+            
+            // Copiar los elementos al archivo temporal
+            for (size_t j = 0; j < elementsToRead; j += B / sizeof(int64_t)) {
+                std::vector<int64_t> tempBuffer;
+                readBlock(inputFile, tempBuffer);
+                writeBlock(subTempFile, tempBuffer);
+            }
+            
+            // Ordenar recursivamente esta partición
+            rewind(subTempFile);
+            externalMergeSort(subTempFile, tempFiles[i], 0, elementsToRead, a);
+            
+            // Cerrar y eliminar el archivo temporal
+            fclose(subTempFile);
+            remove(subTempFileName.c_str());
         }
     }
     
-    return best_a;
+    // Reposicionar todos los archivos temporales al inicio para el merge
+    for (FILE* file : tempFiles) {
+        rewind(file);
+    }
+    
+    // Fusionar los archivos temporales ordenados
+    mergeBlocks(outputFile, tempFiles);
+    
+    // Cerrar y eliminar los archivos temporales
+    for (size_t i = 0; i < tempFiles.size(); i++) {
+        fclose(tempFiles[i]);
+        remove(tempFileNames[i].c_str());
+    }
 }
 
-// Function to expose for main.cpp
-long long run_mergesort(const std::string& inputFile, long N_SIZE, int a, long B_SIZE, long M_SIZE) {
-    // Reset IO counter
-    io_counter.reset();
+// Función principal de MergeSort Externo
+void performExternalMergeSort(const char* inputFileName, const char* outputFileName, size_t a) {
+    FILE* inputFile = fopen(inputFileName, "rb");
+    if (!inputFile) {
+        std::cerr << "Error opening input file: " << inputFileName << std::endl;
+        exit(1);
+    }
     
-    // Create a temporary output filename
-    std::string outputFile = inputFile + ".sorted";
+    FILE* outputFile = fopen(outputFileName, "wb");
+    if (!outputFile) {
+        std::cerr << "Error opening output file: " << outputFileName << std::endl;
+        fclose(inputFile);
+        exit(1);
+    }
+    
+    // Calcular el tamaño del archivo
+    fseek(inputFile, 0, SEEK_END);
+    size_t fileSize = ftell(inputFile);
+    size_t totalElements = fileSize / sizeof(int64_t);
+    
+    // Ordenar el archivo
+    externalMergeSort(inputFile, outputFile, 0, totalElements, a);
+    
+    // Cerrar archivos
+    fclose(inputFile);
+    fclose(outputFile);
+}
 
-    M_SIZE *= 1024 * 1024; // Convert M_SIZE from MB to bytes
-
+// Función para verificar si un archivo está ordenado
+bool checkSorted(const std::string &filename) {
+    FILE* file = fopen(filename.c_str(), "rb");
+    if (!file) {
+        std::cerr << "Error opening file for checking: " << filename << std::endl;
+        return false;
+    }
     
-    // Run external merge sort
-    externalMergeSort(inputFile, outputFile, M_SIZE, B_SIZE, a);
+    int64_t prevValue = std::numeric_limits<int64_t>::min();
+    std::vector<int64_t> buffer;
     
-    // Copy the sorted result back to the input file
-    std::ifstream src(outputFile, std::ios::binary);
-    std::ofstream dst(inputFile, std::ios::binary | std::ios::trunc);
-    dst << src.rdbuf();
-    src.close();
-    dst.close();
+    while (readBlock(file, buffer)) {
+        for (int64_t value : buffer) {
+            if (value < prevValue) {
+                fclose(file);
+                return false;
+            }
+            prevValue = value;
+        }
+    }
     
-    // Return total number of disk accesses
-    return io_counter.reads + io_counter.writes;
+    fclose(file);
+    return true;
 }
