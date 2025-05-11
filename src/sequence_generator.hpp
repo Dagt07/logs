@@ -19,23 +19,23 @@
  * @param file_name  Nombre del .bin de salida.
  * @param BLOCK_SIZE     Tamaño de bloque (debe ser múltiplo de 8).
  */
-inline void generate_sequence(std::uint64_t N,
+inline void generate_sequence(std::int64_t N,
                               const std::string& file_name,
                               std::size_t BLOCK_SIZE)
 {
-    if (BLOCK_SIZE % sizeof(std::uint64_t) != 0)
+    if (BLOCK_SIZE % sizeof(std::int64_t) != 0)
         throw std::invalid_argument("BLOCK_SIZE debe ser múltiplo de 8");
 
-    const std::size_t ints_per_block = BLOCK_SIZE / sizeof(std::uint64_t);
-    std::vector<std::uint64_t> buffer(ints_per_block);
+    const std::size_t ints_per_block = BLOCK_SIZE / sizeof(std::int64_t);
+    std::vector<std::int64_t> buffer(ints_per_block);
 
     std::mt19937_64 rng{std::random_device{}()};
-    std::uniform_int_distribution<std::uint64_t> dist;
+    std::uniform_int_distribution<std::int64_t> dist;
 
     FILE* fp = std::fopen(file_name.c_str(), "wb");
     if (!fp) throw std::runtime_error("No se pudo abrir " + file_name);
 
-    std::uint64_t written = 0;
+    std::int64_t written = 0;
     while (written < N)
     {
         /* Llenar bloque */
@@ -65,13 +65,13 @@ inline void generate_sequence(std::uint64_t N,
             ints_in_M * 52, ints_in_M * 56, ints_in_M * 60};
 */
 /*
-inline std::vector<std::uint64_t> dataset_sizes(std::uint64_t M_bytes)
+inline std::vector<std::int64_t> dataset_sizes(std::int64_t M_bytes)
 {
     if (M_bytes % 8 != 0)
         throw std::invalid_argument("M_SIZE debe ser múltiplo de 8 bytes");
 
-    const std::uint64_t ints_in_M = M_bytes / 8;       // 64‑bit integers
-    std::vector<std::uint64_t> v;
+    const std::int64_t ints_in_M = M_bytes / 8;       // 64‑bit integers
+    std::vector<std::int64_t> v;
     for (int mult = 4; mult <= 60; mult += 4)
         v.push_back(ints_in_M * mult);                 // {4M,8M,…,60M}
     return v;

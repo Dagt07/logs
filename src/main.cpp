@@ -38,61 +38,61 @@
 
     //y más cosas a implementar...
 
-#include "sequence_generator.hpp"
+#include <iostream>
 #include <filesystem>
+#include "sequence_generator.hpp"
+#include "quicksort.hpp" 
+
+using namespace std;
 
 //vector de 15 tamaños N
-std::vector<int> v = {4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60};
+vector<int> v = {4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60};
 
-void process_sequence(const std::string& path, std::uint64_t N,
-                      std::size_t B_SIZE)
-{
-    /*  Aquí, en la versión final, abrirás el .bin, ejecutarás
-        mergesort externo y quicksort externo, medirás I/O, etc.
-        Por ahora solo es un stub:  */
-    (void)path; (void)N; (void)B_SIZE;
+void process_sequence(const std::string& filename, long N_SIZE, int a, long B_SIZE, long M_SIZE) {
+    // Here we call run_quicksort and pass the necessary arguments
+    run_quicksort(filename, N_SIZE, a, B_SIZE, M_SIZE);
 }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]){
     if (argc != 3) {
-        std::cerr << "Uso: " << argv[0]
+        cerr << "Uso: " << argv[0]
                   << " <M_SIZE_MB> <B_SIZE_bytes>\n";
         return EXIT_FAILURE;
     }
 
-    const std::uint64_t M_BYTES = std::stoull(argv[1]) * 1024ULL * 1024ULL;
-    const std::size_t   B_SIZE  = std::stoull(argv[2]);
+    const int64_t M_BYTES = stol(argv[1]) * 1024L * 1024L;
+    const size_t B_SIZE  = stol(argv[2]);
 
-    //auto Ns = dataset_sizes(M_BYTES);      // vector de 15 tamaños N
 
-    //for (std::size_t i = 0; i < Ns.size(); ++i)
-    for (std::size_t i = 0; i < v.size(); ++i)
+    for (size_t i = 0; i < v.size(); ++i)
     {
         int mult = static_cast<int>((i + 1) * 4);      // 4,8,…,60
-        std::uint64_t N = static_cast<std::uint64_t>(v[i]) * M_BYTES / 8;
-        //std::uint64_t N = Ns[i];
+        uint64_t N = static_cast<uint64_t>(v[i]) * M_BYTES / 8;
 
-        std::cout << "\n===  Multiplicador " << mult
+        cout << "\n===  Multiplicador " << mult
                   << " M  →  N = " << N << " elementos  ===\n";
 
         for (int rep = 1; rep <= 5; ++rep)
         {
-            std::ostringstream fn;
-            fn << "seq_" << std::setw(2) << std::setfill('0')
+            ostringstream fn;
+            fn << "seq_" << setw(2) << setfill('0')
                << mult << "M_rep" << rep << ".bin";
 
-            /* 1. Generar                                                         */
+            // 1. Generar                                                         
             generate_sequence(N, fn.str(), B_SIZE);
 
-            /* 2. Procesar (algoritmos externos, medición, etc.)                  */
-            //process_sequence(fn.str(), N, B_SIZE);
+            // 2. Procesar (algoritmos externos, medición, etc.)                  
+            process_sequence(fn.str(), N, 30 , B_SIZE, M_BYTES);
+            cout << "✓ Archivo " << fn.str() << " procesado.\n";
 
-            /* 3. Borrar para liberar espacio                                     */
-            std::filesystem::remove(fn.str());
+            break; //test
+            
+            // 3. Borrar para liberar espacio                                     
+            filesystem::remove(fn.str());
         }
+        break; //test
     }
 
-    std::cout << "\n✓ Experimento completo sin acumular archivos.\n";
+    cout << "\n✓ Experimento completo sin acumular archivos.\n";
     return EXIT_SUCCESS;
 }
