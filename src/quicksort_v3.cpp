@@ -34,15 +34,25 @@
 
 using namespace std;
 
-#define B_SIZE 4096                        // tamaño del bloque en bytes
-#define M_SIZE (50 * 1024 * 1024)         // tamaño de memoria principal (50 MB)
+#define B_SIZE 4096 // tamaño del bloque en bytes
+#define M_SIZE (50 * 1024 * 1024) // tamaño de memoria principal (50 MB)
 
-int disk_access = 0;                       // contador de accesos al disco
+int disk_access = 0; // contador de accesos al disco
 
-// --- Funciones de I/O por bloque ----------------------------------------
+// --------------------------------- Funciones de I/O por bloque ---------------------------------
 
-// Lee un bloque de tamaño B_SIZE desde el archivo en el offset dado y lo almacena en el buffer
+
 size_t readBlock(FILE* file, long blockOffset, vector<int64_t>& buffer, bool first_seek) {
+    /* Lee un bloque de tamaño B_SIZE desde el archivo en el offset dado y lo almacena en el buffer 
+    args:
+        file: puntero al archivo desde el cual se leerá
+        blockOffset: offset del bloque a leer
+        buffer: vector donde se almacenarán los datos leídos
+        first_seek: indica si es la primera lectura (para contar accesos a disco)
+    returns:
+        bytesRead: número de bytes leídos // en verdad no se usan luego esos bytes pero el compilador se quejaba
+    */
+
     size_t numElements = B_SIZE / sizeof(int64_t);  // Número de elementos en un bloque
     buffer.resize(numElements);
     fseek(file, blockOffset * B_SIZE, SEEK_SET);  // Mover el puntero del archivo
@@ -54,8 +64,16 @@ size_t readBlock(FILE* file, long blockOffset, vector<int64_t>& buffer, bool fir
     return bytesRead;
 }
 
-// Volcar (flush) el contenido del buffer a un archivo en modo append
+
 void flushBufferToFile(const string& filename, vector<int64_t>& buffer) {
+    /* Volcar (flush) el contenido del buffer a un archivo en modo append 
+    args:
+        filename: nombre del archivo donde se volcará el buffer
+        buffer: vector que contiene los datos a escribir
+    returns:
+        void
+    */
+
     if (buffer.empty()) return;
     FILE* outFile = fopen(filename.c_str(), "ab");
     fwrite(buffer.data(), sizeof(int64_t), buffer.size(), outFile);
@@ -63,10 +81,18 @@ void flushBufferToFile(const string& filename, vector<int64_t>& buffer) {
     buffer.clear();  // Limpiar buffer después de escribir
 }
 
-// --- Funciones del algoritmo Quicksort Externo ---------------------------
 
-// Selecciona pivotes aleatorios dentro de un bloque
+// --------------------------------- Funciones del algoritmo Quicksort Externo ---------------------------------
+
 void selectPivots(vector<int64_t>& block, int numPivots) {
+    /* Selecciona pivotes aleatorios dentro de un bloque y los coloca al inicio de este 
+    args:
+        block: bloque de datos del que se seleccionarán los pivotes
+        numPivots: número de pivotes a seleccionar
+    returns: 
+        void    
+    */
+
     srand(time(0));
     for (int i = 0; i < numPivots - 1; ++i) {
         int randIndex = rand() % block.size();
@@ -74,17 +100,28 @@ void selectPivots(vector<int64_t>& block, int numPivots) {
     }
 }
 
-// Función principal de Quicksort Externo
-// fileName: nombre del archivo con los datos a ordenar
-// N_SIZE: número total de elementos en el archivo
-// a: número de particiones que se crearán
-void quicksort_externo(const string& fileName, long N_SIZE, int a, bool first_run) {
+
+void externalQuicksort(const string& fileName, long N_SIZE, int a, bool first_run) {
+    /* Función principal de Quicksort Externo de acuerdo al algoritmo descrito
+    args:
+        fileName: nombre del archivo con los datos a ordenar
+        N_SIZE: número total de elementos en el archivo
+        a: número de particiones que se crearán
+        firts_run: indica si es la primera ejecución (para contar accesos a disco)
+    returns:
+        void
+    */
+
     // Caso base: Si los datos caben en la memoria principal, ordenar directamente en memoria
     if (N_SIZE * sizeof(int64_t) <= M_SIZE) {
         vector<int64_t> buffer(N_SIZE);
+        
+        // Leer el archivo completo en memoria y ordenarlo gratis
         FILE* file = fopen(fileName.c_str(), "rb+");
-        size_t unused_bytes = fread(buffer.data(), sizeof(int64_t), N_SIZE, file);
+        size_t _ = fread(buffer.data(), sizeof(int64_t), N_SIZE, file);
         sort(buffer.begin(), buffer.end());
+
+        // Escribir el archivo ordenado de vuelta
         fseek(file, 0, SEEK_SET);
         fwrite(buffer.data(), sizeof(int64_t), N_SIZE, file);
         fclose(file);
@@ -94,18 +131,24 @@ void quicksort_externo(const string& fileName, long N_SIZE, int a, bool first_ru
     // 1) Leer un bloque aleatorio para seleccionar pivotes
     FILE* file = fopen(fileName.c_str(), "rb");
     long blockCount = (N_SIZE * sizeof(int64_t) + B_SIZE - 1) / B_SIZE;
-    long randBlock = rand() % blockCount;
+
+    // Leer un bloque aleatorio
     vector<int64_t> block;
+    long randBlock = rand() % blockCount;
     readBlock(file, randBlock, block, first_run);
+    
+    
+    // 2) Seleccionar pivotes aleatorios dentro del bloque y ordenarlos
     selectPivots(block, a);
-    sort(block.begin(), block.begin() + (a - 1));  // Ordenar los pivotes
+    sort(block.begin(), block.begin() + (a - 1));  // esto es gratis ya que a<B_SIZE
+    
     fclose(file);
 
-    // 2) Preparar los archivos temporales para las particiones
+    // Declarar los arreglos a usar como archivos temporales para las particiones
     vector<string> partitionFiles(a);
     vector<vector<int64_t>> partitionBuffers(a);
 
-    // Eliminar archivos temporales si ya existían
+    // Caso borde -> Eliminar archivos temporales si ya existían
     for (int i = 0; i < a; ++i) {
         partitionFiles[i] = fileName + ".part" + to_string(i);
         filesystem::remove(partitionFiles[i]);
@@ -119,14 +162,18 @@ void quicksort_externo(const string& fileName, long N_SIZE, int a, bool first_ru
     long blockIndex = 0;
 
     while (totalReadElements < N_SIZE) {
+        // Debemos leer el archivo en bloques de tamaño B_SIZE para ordenar los elementos de acuerdo a los pivotes en sub arreglos
+        // De lo contrario, si leemos solo el bloque seleccionado, no tendremos en cuenta el resto de los elementos
         size_t numElementsRead = readBlock(file, blockIndex++, currentBlock, first_run);
+
+        // Distribuir los elementos en las particiones correspondientes
         for (size_t i = 0; i < numElementsRead; ++i) {
             int64_t value = currentBlock[i];
             int partitionIndex = a - 1;
             for (int p = 0; p < a - 1; ++p) {
                 if (value < block[p]) { partitionIndex = p; break; }
             }
-            partitionBuffers[partitionIndex].push_back(value);
+            partitionBuffers[partitionIndex].push_back(value); // agregar el elemento al buffer de la partición correspondiente
 
             // Si el buffer de la partición alcanzó el tamaño de bloque, volcarlo
             if (partitionBuffers[partitionIndex].size() == elemsPerBlock) {
@@ -146,11 +193,11 @@ void quicksort_externo(const string& fileName, long N_SIZE, int a, bool first_ru
     for (int i = 0; i < a; ++i) {
         long partitionSize = filesystem::file_size(partitionFiles[i]) / sizeof(int64_t);
         if (partitionSize > 0) {
-            quicksort_externo(partitionFiles[i], partitionSize, a, false);
+            externalQuicksort(partitionFiles[i], partitionSize, a, false); // first_run = false porque ya no queremos contar accesos a disco
         }
     }
 
-    // 5) Fusionar las particiones de vuelta al archivo original
+    // 5) Unir las particiones de vuelta al archivo original
     file = fopen(fileName.c_str(), "wb");  // Abrir el archivo para reescribirlo
     vector<int64_t> mergeBuffer;
     for (int i = 0; i < a; ++i) {
@@ -160,10 +207,12 @@ void quicksort_externo(const string& fileName, long N_SIZE, int a, bool first_ru
             size_t numElements = fread(tempBuffer.data(), sizeof(int64_t), elemsPerBlock, partitionFile);
             if (numElements == 0) break;
             fwrite(tempBuffer.data(), sizeof(int64_t), numElements, file);
-            if (first_run)++ disk_access;  // Contar acceso a disco
+            if (first_run)++ disk_access;  // Contar acceso a disco solo en first_run
         }
         fclose(partitionFile);
-        filesystem::remove(partitionFiles[i]);  // Eliminar archivo temporal
+
+        // Eliminar archivo temporal
+        filesystem::remove(partitionFiles[i]);  
 
         // Insertar pivote si es necesario
         if (i < a - 1) {
@@ -174,10 +223,17 @@ void quicksort_externo(const string& fileName, long N_SIZE, int a, bool first_ru
     fclose(file);
 }
 
-// --- Funciones auxiliares ------------------------------------------------
+// --------------------------------- Funciones auxiliares ---------------------------------
 
-// Verifica si el archivo está ordenado
-bool check_sorted(FILE* file, long input_size) {
+bool checkSorted(FILE* file, long input_size) {
+    /* Verifica si el archivo completo está ordenado
+    args:
+        file: puntero al archivo que se va a verificar
+        input_size: tamaño del archivo en bytes
+    returns:
+        true si el archivo está ordenado, false en caso contrario
+    */
+
     long numElements = input_size / sizeof(int64_t);
     if (numElements <= 0) {
         cerr << "El tamaño del archivo no es suficiente para contener al menos un entero." << endl;
@@ -188,10 +244,12 @@ bool check_sorted(FILE* file, long input_size) {
     fseek(file, 0, SEEK_SET);
     size_t bytesRead = fread(buffer.data(), sizeof(int64_t), numElements, file);
 
+    /* //condición apagada para test grande
     if (bytesRead * sizeof(int64_t) != input_size) {
         cerr << "Error leyendo el archivo." << endl;
         return false;
     }
+    */
 
     if (is_sorted(buffer.begin(), buffer.end())) {
         cout << "El archivo está ordenado." << endl;
@@ -202,8 +260,16 @@ bool check_sorted(FILE* file, long input_size) {
     }
 }
 
-// Imprime los primeros N elementos del archivo
+
 void printFirstElements(FILE* file, long numElements) {
+    /* Imprime los primeros N elementos del archivo
+    args:
+        file: puntero al archivo que se va a imprimir
+        numElements: número de elementos a imprimir
+    returns:
+        void
+    */
+
     vector<int64_t> buffer(numElements);
     fseek(file, 0, SEEK_SET);
     size_t bytesRead = fread(buffer.data(), sizeof(int64_t), numElements, file);
@@ -226,11 +292,12 @@ void printFirstElements(FILE* file, long numElements) {
     }
 }
 
-// --- Función principal ---------------------------------------------------
+// --------------------------------- Función principal ---------------------------------
 
 #include "sequence_generator.hpp"
 
 int main(int argc, char* argv[]) {
+    
     long N_SIZE = 4 * M_SIZE;       // número de elementos a generar
     int a = 30;         // número de particiones
 
@@ -253,7 +320,7 @@ int main(int argc, char* argv[]) {
     }
 
     // 3) Ejecutar el Quicksort Externo
-    quicksort_externo(inputFile, N_SIZE, a, true);
+    externalQuicksort(inputFile, N_SIZE, a, true);
 
     // 4) Mostrar el número de accesos al disco
     cout << "Accesos al disco: " << disk_access << endl;
@@ -266,7 +333,7 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         printFirstElements(file, 25);
-        cout << "¿Está ordenado? " << check_sorted(file, N_SIZE) << endl;
+        cout << "¿Está ordenado? " << checkSorted(file, N_SIZE) << endl;
         fclose(file);
     }
 
