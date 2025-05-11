@@ -83,14 +83,11 @@ int main(int argc, char* argv[]){
 
             // 2. Procesar (algoritmos externos, medición, etc.)                  
             process_sequence(fn.str(), N, 30 , B_SIZE, M_BYTES);
-            cout << "✓ Archivo " << fn.str() << " procesado.\n";
-
-            break; //test
+            cout << "Archivo " << fn.str() << " procesado.\n";
             
             // 3. Borrar para liberar espacio                                     
             filesystem::remove(fn.str());
         }
-        break; //test
     }
 
     cout << "\n✓ Experimento completo sin acumular archivos.\n";

@@ -99,7 +99,7 @@ void selectPivots(vector<int64_t>& block, int numPivots) {
         return;
     }
 
-    //srand(time(0));
+    srand(time(0));
     for (int i = 0; i < numPivots - 1; ++i) {
         int randIndex = rand() % block.size();
         swap(block[i], block[randIndex]);  // Intercambiar para agrupar los pivotes al inicio
@@ -297,9 +297,9 @@ void printFirstElements(FILE* file, long numElements) {
     cout << endl;
 
     if (is_sorted(buffer.begin(), buffer.end())) {
-        cout << "Ordenado" << endl;
+        cout << "✅ Ordenado" << endl;
     } else {
-        cout << "No ordenado" << endl;
+        cout << "❌ No ordenado" << endl;
     }
 }
 
@@ -309,12 +309,12 @@ void printFirstElements(FILE* file, long numElements) {
 
 extern void externalQuicksort(const std::string& inputFile, long N_SIZE, int a, bool first_run);
 
-void run_quicksort(const std::string& inputFile, long N_SIZE, int a, long B_SIZE, long M_SIZE) {
+void run_quicksort(const std::string& inputFile, long N_SIZE, int a, long B_SIZE_arg, long M_SIZE_arg) {
     cout << "Tamaño N_SIZE: " << N_SIZE << endl;
 
     // Variables globales
-    B_SIZE = B_SIZE; // tamaño del bloque (estandar 4096 bytes)
-    M_SIZE = M_SIZE; // tamaño de la memoria principal (50 MB)
+    B_SIZE = B_SIZE_arg; // tamaño del bloque (estandar 4096 bytes)
+    M_SIZE = M_SIZE_arg; // tamaño de la memoria principal (50 MB)
 
     // Show some elements before sorting
     {
@@ -327,9 +327,7 @@ void run_quicksort(const std::string& inputFile, long N_SIZE, int a, long B_SIZE
         fclose(file);
     }
 
-    cout << inputFile  << endl;
-
-    srand(time(0));
+    //srand(time(0));
     // Execute the external quicksort
     externalQuicksort(inputFile, N_SIZE, a, true);
 
@@ -347,106 +345,3 @@ void run_quicksort(const std::string& inputFile, long N_SIZE, int a, long B_SIZE
     // Show the number of disk accesses
     cout << "Accesos al disco: " << disk_access << endl;
 }
-
-//void run_quicksort(int argc, char* argv[]) {
-//    /* Ejecuta el Quicksort Externo y muestra los resultados
-//    args:
-//        inputFile: nombre del archivo de entrada
-//        N_SIZE: número total de elementos en el archivo
-//        a: número de particiones que se crearán
-//    returns:
-//        void
-//    */
-//
-//    string inputFile = argv[1]; // nombre del archivo de entrada
-//    long N_SIZE = stol(argv[2]); // tamaño del array a ordenar (input)
-//    int a = stoi(argv[3]); // número de particiones
-//
-//    // Variables globales
-//    B_SIZE = stol(argv[4]); // tamaño del bloque (estandar 4096 bytes)
-//    M_SIZE = stol(argv[5]); //50 * 1024 * 1024; // tamaño de la memoria principal (50 MB)
-//
-//    cout << "Tamaño N_SIZE: " << N_SIZE << endl;
-//
-//    // Mostrar algunos elementos antes de ordenar
-//    {
-//        FILE* file = fopen(inputFile.c_str(), "rb");
-//        if (!file) {
-//            cerr << "No puedo abrir " << inputFile << endl;
-//            return;
-//        }
-//        printFirstElements(file, 10);
-//        fclose(file);
-//    }
-//
-//    // Ejecutar el Quicksort Externo
-//    externalQuicksort(inputFile, N_SIZE, a, true);
-//
-//    // Mostrar el número de accesos al disco
-//    cout << "Accesos al disco: " << disk_access << endl;
-//
-//    // Mostrar el resultado final
-//    {
-//        FILE* file = fopen(inputFile.c_str(), "rb");
-//        if (!file) {
-//            cerr << "No puedo abrir " << inputFile << " después de ordenar" << endl;
-//            return;
-//        }
-//        printFirstElements(file, 10);
-//        cout << "¿Está ordenado? " << checkSorted(file, N_SIZE * sizeof(int64_t)) << endl;
-//        fclose(file);
-//    }
-//}
-
-// --------------------------------- Función para ejecutar por si solo ---------------------------------
-
-/*
-
-int main(int argc, char* argv[]) {
-
-    M_SIZE = 50 * 1024 * 1024; // tamaño de la memoria principal (50 MB)
-    B_SIZE = 4096; // tamaño del bloque (estandar 4096 bytes)
-    
-    long N_SIZE = 4 * M_SIZE;       // número de elementos a generar
-    int a = 30;         // número de particiones
-
-    const string inputFile = "input.bin";
-    
-    // 1) Generar secuencia aleatoria
-    generate_sequence(N_SIZE, inputFile, B_SIZE);
-    cout << "Archivo generado tamaño: " << inputFile.size() << endl;
-
-    cout << "Tamaño N_SIZE: " << N_SIZE << endl;
-
-    // Mostrar algunos elementos antes de ordenar
-    {
-        FILE* file = fopen(inputFile.c_str(), "rb");
-        if (!file) {
-            cerr << "No puedo abrir " << inputFile << endl;
-            return 1;
-        }
-        printFirstElements(file, 10);
-        fclose(file);
-    }
-
-    // Ejecutar el Quicksort Externo
-    externalQuicksort(inputFile, N_SIZE, a, true);
-
-    // Mostrar el número de accesos al disco
-    cout << "Accesos al disco: " << disk_access << endl;
-
-    // Mostrar el resultado final
-    {
-        FILE* file = fopen(inputFile.c_str(), "rb");
-        if (!file) {
-            cerr << "No puedo abrir " << inputFile << " después de ordenar" << endl;
-            return 1;
-        }
-        printFirstElements(file, 10);
-        cout << "¿Está ordenado? " << checkSorted(file, N_SIZE) << endl;
-        fclose(file);
-    }
-
-    return 0;
-}
-*/
