@@ -35,6 +35,7 @@
 #include <algorithm>
 #include "sequence_generator.hpp"
 #include "../headers/quicksort.hpp" 
+#include "../headers/mergesort.hpp"
 
 using namespace std;
 
@@ -108,15 +109,27 @@ AlgorithmResults process_sequence(const std::string& filename, long N_SIZE, int 
         results: estructura AlgorithmResults con los resultados de los algoritmos
     */
     
+    cout << "------------------" << "Procesando archivo: " << filename << "------------------" << endl;
+
     // --------------------------- MERGESORT ---------------------------
-    // auto merge_start_time = std::chrono::high_resolution_clock::now();
-    // int merge_sort_disk_access = run_mergesort(filename, N_SIZE, a, B_SIZE, M_SIZE);
-    // auto merge_end_time = std::chrono::high_resolution_clock::now();
-    // auto merge_duration = std::chrono::duration_cast<std::chrono::milliseconds>(merge_end_time - merge_start_time);
-    // results.merge_time_ms = merge_duration.count();
-    // results.merge_disk_access = merge_sort_disk_access;
-    // cout << "MergeSort completado en " << results.merge_time_ms << " ms, con " 
-    //      << results.merge_disk_access << " accesos a disco" << endl;
+    auto merge_start_time = std::chrono::high_resolution_clock::now();
+    int merge_sort_disk_access = run_mergesort(filename, N_SIZE, a, B_SIZE, M_SIZE);
+    auto merge_end_time = std::chrono::high_resolution_clock::now();
+    auto merge_duration = std::chrono::duration_cast<std::chrono::milliseconds>(merge_end_time - merge_start_time);
+    results.merge_time_ms = merge_duration.count();
+    results.merge_disk_access = merge_sort_disk_access;
+    std::cout << "MergeSort completado en " << results.merge_time_ms << " ms, con " 
+     << results.merge_disk_access << " accesos a disco" << std::endl;
+
+    // Check if the file is sorted
+    std::string sortedFilename = filename + ".sorted";
+    FILE* file = fopen(sortedFilename.c_str(), "rb");
+    if (!file) {
+        cerr << "Error: No se pudo abrir el archivo " << filename << endl;
+        return results;
+    }
+    bool _ = checkSorted(file, N_SIZE);
+    fclose(file);
     
 
     // --------------------------- QUICKSORT ---------------------------
@@ -137,13 +150,13 @@ AlgorithmResults process_sequence(const std::string& filename, long N_SIZE, int 
     results.quick_disk_access = quick_sort_disk_access;
     
     // Check if the file is sorted
-    FILE* file = fopen(filename.c_str(), "rb");
-    if (!file) {
+    FILE* file2 = fopen(filename.c_str(), "rb");
+    if (!file2) {
         cerr << "Error: No se pudo abrir el archivo " << filename << endl;
         return results;
     }
-    bool _ = checkSorted(file, N_SIZE);
-    fclose(file);
+    bool __ = checkSorted(file2, N_SIZE);
+    fclose(file2);
 
     // Print results
     cout << "QuickSort completado en " << results.quick_time_ms << " ms, con " 
@@ -203,7 +216,10 @@ int main(int argc, char* argv[]){
             
             // 3. Borrar para liberar espacio                                     
             filesystem::remove(fn.str());
+            filesystem::remove(fn.str()+".sorted");
+            break;
         }
+        break;
     }
 
     // Fin del experimento

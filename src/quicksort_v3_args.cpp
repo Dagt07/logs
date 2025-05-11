@@ -118,6 +118,10 @@ void externalQuicksort(const string& fileName, long N_SIZE, int a, bool first_ru
         void
     */
 
+    if (first_run) {
+        cout << "Tamaño del archivo: " << N_SIZE << " bytes" << endl;
+    }
+
     // Caso base: Si los datos caben en la memoria principal, ordenar directamente en memoria
     if (N_SIZE * sizeof(int64_t) <= M_SIZE) {
         vector<int64_t> buffer(N_SIZE);
@@ -289,8 +293,6 @@ long long run_quicksort(const std::string& inputFile, long N_SIZE, int a, long B
     // Variables globales
     B_SIZE = B_SIZE_arg; // tamaño del bloque (estandar 4096 bytes)
     M_SIZE = M_SIZE_arg; // tamaño de la memoria principal (50 MB)
-
-    cout << "------------------" << inputFile << "------------------" << endl;
 
     /*
     // Show some elements before sorting
