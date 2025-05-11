@@ -320,11 +320,12 @@ int run_quicksort(const std::string& inputFile, long N_SIZE, int a, long B_SIZE_
     returns:
         disk_access: número de accesos al disco
     */
-    cout << "Tamaño N_SIZE: " << N_SIZE << endl;
 
     // Variables globales
     B_SIZE = B_SIZE_arg; // tamaño del bloque (estandar 4096 bytes)
     M_SIZE = M_SIZE_arg; // tamaño de la memoria principal (50 MB)
+
+    cout << "------------------" << inputFile << "------------------" << endl;
 
     // Show some elements before sorting
     {
@@ -337,7 +338,6 @@ int run_quicksort(const std::string& inputFile, long N_SIZE, int a, long B_SIZE_
         fclose(file);
     }
 
-    //srand(time(0));
     // Execute the external quicksort
     externalQuicksort(inputFile, N_SIZE, a, true);
 
