@@ -7,7 +7,7 @@
 //se define N_SIZE <- tamaño del array que contiene a los elementos a ordenar (input)
 //se define a <- valor que se debe determinar acá y define: 1) aridad del mergesort 2) Número de particiones que se van a realizar en el algoritmo de quicksort
 
-//funcion que genera 5  secuencias  de  números  enteros  de  64  bits  de  tamaño  total  𝑁,  con
+//funcion que genera 5  secuencias  de  números  enteros  de  64  bits  de  tamaño  total   𝑁,  con
 //𝑁 ∈ {4𝑀, 8𝑀, ...60𝑀} (es decir, 5 secuencias de tamaño 4𝑀, 5 secuencias de tamaño 8𝑀, ...), 
 //insertarlos desordenadamente en un arreglo y guardarlo en binario en disco. 
 //Para trabajar en disco, se guardará como un archivo binario (.bin) el arreglo de tamaño 𝑁. Este archivo
@@ -40,6 +40,8 @@
 
 #include <iostream>
 #include <filesystem>
+#include <fstream>
+#include <chrono>  // Add this include at the top of the file
 #include "sequence_generator.hpp"
 #include "../headers/quicksort.hpp" 
 
@@ -48,9 +50,49 @@ using namespace std;
 //vector de 15 tamaños N
 vector<int> v = {4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60};
 
-void process_sequence(const std::string& filename, long N_SIZE, int a, long B_SIZE, long M_SIZE) {
+// Define a struct to hold algorithm results
+struct AlgorithmResults {
+    long long merge_time_ms;
+    int merge_disk_access;
+    long long quick_time_ms;
+    int quick_disk_access;
+};
+
+// Modified process_sequence to return the results
+AlgorithmResults process_sequence(const std::string& filename, long N_SIZE, int a, long B_SIZE, long M_SIZE) {
+    AlgorithmResults results = {0, 0, 0, 0};
+    
+    // MERGESORT IMPLEMENTATION WOULD GO HERE
+    // auto merge_start_time = std::chrono::high_resolution_clock::now();
+    // int merge_sort_disk_access = run_mergesort(filename, N_SIZE, a, B_SIZE, M_SIZE);
+    // auto merge_end_time = std::chrono::high_resolution_clock::now();
+    // auto merge_duration = std::chrono::duration_cast<std::chrono::milliseconds>(merge_end_time - merge_start_time);
+    // results.merge_time_ms = merge_duration.count();
+    // results.merge_disk_access = merge_sort_disk_access;
+    // cout << "MergeSort completado en " << results.merge_time_ms << " ms, con " 
+    //      << results.merge_disk_access << " accesos a disco" << endl;
+    
+    // Start measuring time for quicksort
+    auto quick_start_time = std::chrono::high_resolution_clock::now();
+    
     // Here we call run_quicksort and pass the necessary arguments
-    run_quicksort(filename, N_SIZE, a, B_SIZE, M_SIZE);
+    int quick_sort_disk_access = run_quicksort(filename, N_SIZE, a, B_SIZE, M_SIZE);
+    
+    // Stop measuring time
+    auto quick_end_time = std::chrono::high_resolution_clock::now();
+    
+    // Calculate duration in milliseconds
+    auto quick_duration = std::chrono::duration_cast<std::chrono::milliseconds>(quick_end_time - quick_start_time);
+    
+    // Store quicksort results
+    results.quick_time_ms = quick_duration.count();
+    results.quick_disk_access = quick_sort_disk_access;
+    
+    // Print results
+    cout << "QuickSort completado en " << results.quick_time_ms << " ms, con " 
+         << results.quick_disk_access << " accesos a disco" << endl;
+         
+    return results;
 }
 
 int main(int argc, char* argv[]){
@@ -61,16 +103,26 @@ int main(int argc, char* argv[]){
     }
 
     const int64_t M_BYTES = stol(argv[1]) * 1024L * 1024L;
-    const size_t B_SIZE  = stol(argv[2]);
-
+    const size_t B_SIZE = stol(argv[2]);
+    
+    // Create and initialize CSV file
+    ofstream results_csv("sorting_results.csv");
+    if (!results_csv) {
+        cerr << "Error: No se pudo crear el archivo CSV de resultados.\n";
+        return EXIT_FAILURE;
+    }
+    
+    // Write CSV header
+    results_csv << "Size_MB,Repetition,N_elements,MergeSort_Time_ms,MergeSort_Disk_Access,"
+                << "QuickSort_Time_ms,QuickSort_Disk_Access\n";
 
     for (size_t i = 0; i < v.size(); ++i)
     {
         int mult = static_cast<int>((i + 1) * 4);      // 4,8,…,60
-        uint64_t N = static_cast<uint64_t>(v[i]) * M_BYTES / 8;
+        int64_t N = static_cast<int64_t>(v[i]) * M_BYTES;
 
         cout << "\n===  Multiplicador " << mult
-                  << " M  →  N = " << N << " elementos  ===\n";
+                  << " M  →  N = " << N << " elementos  ===\n";
 
         for (int rep = 1; rep <= 5; ++rep)
         {
@@ -82,12 +134,22 @@ int main(int argc, char* argv[]){
             generate_sequence(N, fn.str(), B_SIZE);
 
             // 2. Procesar (algoritmos externos, medición, etc.)                  
-            process_sequence(fn.str(), N, 30 , B_SIZE, M_BYTES);
+            AlgorithmResults results = process_sequence(fn.str(), N, 30, B_SIZE, M_BYTES);
+            
+            // Save results to CSV
+            results_csv << mult*stol(argv[1]) << "," << rep << "," << N << "," 
+                        << results.merge_time_ms << "," << results.merge_disk_access << ","
+                        << results.quick_time_ms << "," << results.quick_disk_access << "\n";
+                        
             cout << "Archivo " << fn.str() << " procesado.\n";
+            
             // 3. Borrar para liberar espacio                                     
             filesystem::remove(fn.str());
+        }
     }
 
-    cout << "\n✓ Experimento completo sin acumular archivos.\n";
+    // Close the CSV file
+    results_csv.close();
+    cout << "\n✓ Experimento completo. Resultados guardados en sorting_results.csv\n";
     return EXIT_SUCCESS;
 }

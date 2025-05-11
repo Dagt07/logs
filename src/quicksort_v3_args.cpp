@@ -309,25 +309,35 @@ void printFirstElements(FILE* file, long numElements) {
 
 extern void externalQuicksort(const std::string& inputFile, long N_SIZE, int a, bool first_run);
 
-void run_quicksort(const std::string& inputFile, long N_SIZE, int a, long B_SIZE_arg, long M_SIZE_arg) {
-    cout << "Tamaño N_SIZE: " << N_SIZE << endl;
+int run_quicksort(const std::string& inputFile, long N_SIZE, int a, long B_SIZE_arg, long M_SIZE_arg) {
+    /* Función principal para ejecutar el Quicksort Externo
+    args:
+        inputFile: nombre del archivo de entrada
+        N_SIZE: número total de elementos en el archivo
+        a: número de particiones que se crearán
+        B_SIZE_arg: tamaño del bloque en bytes
+        M_SIZE_arg: tamaño de la memoria principal en bytes
+    returns:
+        disk_access: número de accesos al disco
+    */
 
     // Variables globales
     B_SIZE = B_SIZE_arg; // tamaño del bloque (estandar 4096 bytes)
     M_SIZE = M_SIZE_arg; // tamaño de la memoria principal (50 MB)
+
+    cout << "------------------" << inputFile << "------------------" << endl;
 
     // Show some elements before sorting
     {
         FILE* file = fopen(inputFile.c_str(), "rb");
         if (!file) {
             cerr << "No puedo abrir " << inputFile << endl;
-            return;
+            return -1;
         }
         printFirstElements(file, 10);
         fclose(file);
     }
 
-    //srand(time(0));
     // Execute the external quicksort
     externalQuicksort(inputFile, N_SIZE, a, true);
 
@@ -336,12 +346,11 @@ void run_quicksort(const std::string& inputFile, long N_SIZE, int a, long B_SIZE
         FILE* file = fopen(inputFile.c_str(), "rb");
         if (!file) {
             cerr << "No puedo abrir " << inputFile << " después de ordenar" << endl;
-            return;
+            return -1;
         }
         printFirstElements(file, 25);
         fclose(file);
     }
 
-    // Show the number of disk accesses
-    cout << "Accesos al disco: " << disk_access << endl;
+    return disk_access;
 }
