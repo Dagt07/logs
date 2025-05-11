@@ -39,7 +39,6 @@ int main() {
     size_t a = 4;
 
     // Ejecutar MergeSort Externo con la aridad 'a'
-    performExternalMergeSort(inputFileName, outputFileName, a);
 
     cout << "El ordenamiento ha sido completado con éxito." << endl;
 
