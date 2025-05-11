@@ -182,41 +182,6 @@ public:
     }
 };
 
-/**
- * Genera un archivo con enteros aleatorios
- */
-void createRandomFile(const std::string& filename, size_t num_elements) {
-    std::ofstream output(filename, std::ios::binary);
-    if (!output) {
-        throw std::runtime_error("No se pudo crear el archivo");
-    }
-    
-    // Crear buffer para escrituras en bloque
-    size_t block_size = 4096 / sizeof(int64_t); // Tamaño típico de bloque
-    std::vector<int64_t> buffer(block_size);
-    
-    // Inicializar generador de números aleatorios
-    std::random_device rd;
-    std::mt19937_64 gen(rd());
-    std::uniform_int_distribution<int64_t> dist(INT64_MIN, INT64_MAX);
-    
-    // Escribir números aleatorios en bloques
-    size_t remaining = num_elements;
-    while (remaining > 0) {
-        size_t current_block = std::min(remaining, block_size);
-        
-        // Llenar buffer con enteros aleatorios de 64 bits
-        for (size_t i = 0; i < current_block; i++) {
-            buffer[i] = dist(gen);
-        }
-        
-        // Escribir buffer al archivo
-        output.write(reinterpret_cast<char*>(buffer.data()), current_block * sizeof(int64_t));
-        remaining -= current_block;
-    }
-    
-    output.close();
-}
 
 /**
  * Ordena un bloque en memoria
@@ -232,33 +197,18 @@ void mergeRuns(const std::string& input_filename, const std::string& output_file
                size_t total_elements, size_t run_size, size_t num_runs_to_merge,
                size_t block_size) {
     
-    std::cout << "DEBUG: Iniciando mergeRuns con input=" << input_filename 
-              << ", output=" << output_filename << std::endl;
     
     // Calcular número real de ejecuciones
     size_t num_runs = (total_elements + run_size - 1) / run_size;
-    std::cout << "DEBUG: Número total de ejecuciones: " << num_runs << std::endl;
     
     // Procesar ejecuciones en grupos de num_runs_to_merge
     for (size_t base_run = 0; base_run < num_runs; base_run += num_runs_to_merge) {
         size_t runs_in_this_merge = std::min(num_runs_to_merge, num_runs - base_run);
-        std::cout << "Uniendo ejecuciones " << base_run << " a " << (base_run + runs_in_this_merge - 1) << std::endl;
         
         try {
             // Abrir archivos
-            std::cout << "DEBUG: Intentando abrir archivos..." << std::endl;
             BufferedFile input_file(input_filename, true, block_size);
             BufferedFile output_file(output_filename, false, block_size);
-            std::cout << "DEBUG: Archivos abiertos correctamente" << std::endl;
-            
-            std::cout << "Leyendo ejecuciones de " << input_filename << std::endl;
-            std::cout << "Escribiendo en " << output_filename << std::endl;
-            std::cout << "Tamaño de bloque: " << block_size << " elementos" << std::endl;
-            std::cout << "Número de ejecuciones a unir: " << runs_in_this_merge << std::endl;
-            std::cout << "Tamaño de cada ejecución: " << run_size << " elementos" << std::endl;
-            std::cout << "Total de elementos: " << total_elements << std::endl;
-            std::cout << "----------------------------------------" << std::endl;
-            std::cout << "Leyendo ejecuciones..." << std::endl;
             
             // Estructuras para unir las ejecuciones
             std::vector<std::vector<int64_t>> run_buffers(runs_in_this_merge);
@@ -266,44 +216,20 @@ void mergeRuns(const std::string& input_filename, const std::string& output_file
             std::vector<size_t> elements_processed(runs_in_this_merge, 0); // Nuevo: contador de elementos procesados
             std::vector<size_t> run_sizes(runs_in_this_merge);
             
-            std::cout << "DEBUG: Inicializando buffers para " << runs_in_this_merge << " ejecuciones" << std::endl;
-            
             // Inicializar buffers y cargar el primer bloque de cada ejecución
             for (size_t i = 0; i < runs_in_this_merge; i++) {
-                std::cout << "DEBUG: Preparando ejecución " << i << " de " << runs_in_this_merge << std::endl;
                 
                 // Calcular posición y tamaño de esta ejecución
                 size_t run_start = (base_run + i) * run_size;
                 run_sizes[i] = std::min(run_size, total_elements - run_start);
                 
-                std::cout << "DEBUG: Ejecución " << i << " comienza en posición " << run_start 
-                          << " con tamaño " << run_sizes[i] << std::endl;
-                
                 try {
                     run_buffers[i].resize(block_size);
-                    std::cout << "DEBUG: Buffer redimensionado a " << block_size << " elementos" << std::endl;
-                    
                     input_file.seek(run_start);
-                    std::cout << "DEBUG: Posicionado en " << run_start << " para lectura" << std::endl;
                     
                     size_t elements_to_read = std::min(run_sizes[i], block_size);
-                    std::cout << "DEBUG: Intentando leer " << elements_to_read << " elementos" << std::endl;
-                    
                     size_t elements_read = input_file.readBlock(run_buffers[i], elements_to_read);
-                    std::cout << "DEBUG: Leídos " << elements_read << " elementos" << std::endl;
                     
-                    if (elements_read == 0) {
-                        run_sizes[i] = 0;  // Ejecución vacía
-                        std::cout << "DEBUG: ¡Advertencia! Ejecución " << i << " está vacía" << std::endl;
-                    }
-                    
-                    if (elements_read > 0) {
-                        std::cout << "DEBUG: Primeros elementos de ejecución " << i << ": ";
-                        for (size_t j = 0; j < std::min(elements_read, size_t(5)); j++) {
-                            std::cout << run_buffers[i][j] << " ";
-                        }
-                        std::cout << std::endl;
-                    }
                 } catch (const std::exception& e) {
                     std::cerr << "ERROR al inicializar buffer " << i << ": " << e.what() << std::endl;
                     throw;
@@ -311,14 +237,11 @@ void mergeRuns(const std::string& input_filename, const std::string& output_file
             }
             
             // Cola de prioridad para la unión
-            std::cout << "DEBUG: Inicializando cola de prioridad" << std::endl;
             std::priority_queue<QueueElement, std::vector<QueueElement>, std::greater<QueueElement>> pq;
             
             // Inicializar cola con el primer elemento de cada ejecución
             for (size_t i = 0; i < runs_in_this_merge; i++) {
                 if (run_sizes[i] > 0) {
-                    std::cout << "DEBUG: Añadiendo primer elemento de ejecución " << i 
-                              << " a la cola: " << run_buffers[i][0] << std::endl;
                     pq.push({run_buffers[i][0], i});
                     buffer_positions[i] = 1;
                 } else {
@@ -326,7 +249,6 @@ void mergeRuns(const std::string& input_filename, const std::string& output_file
                 }
             }
             
-            std::cout << "DEBUG: Tamaño inicial de la cola: " << pq.size() << std::endl;
             size_t elements_merged = 0;
             
             // Realizar la unión
@@ -337,10 +259,6 @@ void mergeRuns(const std::string& input_filename, const std::string& output_file
                 // Escribir el valor mínimo al archivo de salida
                 output_file.writeElement(min_element.value);
                 elements_merged++;
-                
-                if (elements_merged % 1000000 == 0) {
-                    std::cout << "DEBUG: Procesados " << elements_merged << " elementos" << std::endl;
-                }
                 
                 size_t run_idx = min_element.run_index;
                 size_t run_start = (base_run + run_idx) * run_size;
@@ -354,45 +272,23 @@ void mergeRuns(const std::string& input_filename, const std::string& output_file
                     
                     // Si aún hay más elementos en esta ejecución, cargarlos
                     if (elements_processed[run_idx] < run_sizes[run_idx]) {
-                        std::cout << "DEBUG: Recargando buffer para ejecución " << run_idx 
-                                  << ", procesados hasta ahora: " << elements_processed[run_idx] 
-                                  << " de " << run_sizes[run_idx] << std::endl;
-                        
                         try {
                             // Calcular posición absoluta en el archivo
                             size_t absolute_position = run_start + elements_processed[run_idx];
                             input_file.seek(absolute_position);
-                            std::cout << "DEBUG: Posicionado en " << absolute_position << " para recarga" << std::endl;
                             
                             // Calcular cuántos elementos quedan por leer en esta ejecución
                             size_t elements_remaining = run_sizes[run_idx] - elements_processed[run_idx];
                             size_t elements_to_read = std::min(block_size, elements_remaining);
                             
-                            std::cout << "DEBUG: Intentando leer " << elements_to_read 
-                                      << " elementos (quedan " << elements_remaining << ")" << std::endl;
-                            
                             // Leer el siguiente bloque
                             size_t elements_read = input_file.readBlock(run_buffers[run_idx], elements_to_read);
                             
-                            std::cout << "DEBUG: Leídos " << elements_read << " elementos adicionales" << std::endl;
-                            
                             if (elements_read > 0) {
-                                // Verificación para depuración
-                                std::cout << "DEBUG: Nuevo bloque para ejecución " << run_idx << ": ";
-                                for (size_t j = 0; j < std::min(elements_read, size_t(3)); j++) {
-                                    std::cout << run_buffers[run_idx][j] << " ";
-                                }
-                                std::cout << std::endl;
-                                
                                 // Resetear posición en el buffer y añadir elemento a la cola
                                 buffer_positions[run_idx] = 1;  // Ya usaremos el primer elemento
                                 pq.push({run_buffers[run_idx][0], run_idx});
-                                std::cout << "DEBUG: Añadido nuevo elemento " << run_buffers[run_idx][0] 
-                                          << " de ejecución " << run_idx << " a la cola" << std::endl;
                             } else {
-                                std::cout << "DEBUG: ATENCIÓN: No se pudieron leer más elementos de ejecución " 
-                                          << run_idx << " (posiblemente EOF)" << std::endl;
-                                
                                 // Marcar esta ejecución como completada
                                 elements_processed[run_idx] = run_sizes[run_idx];
                             }
@@ -408,23 +304,13 @@ void mergeRuns(const std::string& input_filename, const std::string& output_file
                     int64_t next_value = run_buffers[run_idx][buffer_positions[run_idx]];
                     pq.push({next_value, run_idx});
                     buffer_positions[run_idx]++;
-                    
-                    if (buffer_positions[run_idx] % 100000 == 0) {
-                        std::cout << "DEBUG: Posición en buffer " << run_idx << " avanzada a " 
-                                  << buffer_positions[run_idx] << " (procesados: " 
-                                  << elements_processed[run_idx] << ")" << std::endl;
-                    }
                 }
             }
-            
-            std::cout << "DEBUG: Merge completado, procesados " << elements_merged << " elementos" << std::endl;
-            
         } catch (const std::exception& e) {
             std::cerr << "ERROR FATAL en mergeRuns: " << e.what() << std::endl;
             throw;
         }
     }
-    
     std::cout << "DEBUG: mergeRuns finalizado exitosamente" << std::endl;
 }
 
@@ -502,7 +388,6 @@ void externalMergeSort(const std::string& input_filename, const std::string& out
         // Necesitamos 1 buffer de bloque para cada ejecución de entrada y 1 para la salida
         max_runs_to_merge = (memory_size / sizeof(int64_t) / block_size) - 1;
         if (max_runs_to_merge < 2) max_runs_to_merge = 2;  // Mínimo 2 ejecuciones para unir
-        std::cout << "Max runs to merge: " << max_runs_to_merge << std::endl;
     }
     
     // Unir iterativamente ejecuciones hasta tener solo una
@@ -522,10 +407,6 @@ void externalMergeSort(const std::string& input_filename, const std::string& out
         // Actualizar tamaño de ejecución y conteo para la siguiente iteración
         run_size *= max_runs_to_merge;
         runs_created = (runs_created + max_runs_to_merge - 1) / max_runs_to_merge;
-        std::cout << "Ejecuciones restantes: " << runs_created << std::endl;
-        std::cout << "Tamaño de ejecución: " << run_size << std::endl;
-        std::cout << "Total de elementos: " << total_elements << std::endl;
-        std::cout << "Tamaño de archivo: " << file_size_bytes << std::endl;
     }
     
     // Renombrar el archivo de salida final al nombre de salida solicitado
@@ -581,6 +462,8 @@ size_t findOptimalA(const std::string& input_filename, size_t memory_size, size_
         
         // Resetear contador IO
         io_counter.reset();
+        std::cout << "Contador IO reiniciado: " << io_counter.reads << " lecturas, " 
+                 << io_counter.writes << " escrituras" << std::endl;
         
         // Crear una copia del archivo de entrada para preservar el original
         const std::string temp_input = "temp_input_copy.bin";
@@ -633,8 +516,8 @@ size_t findOptimalA(const std::string& input_filename, size_t memory_size, size_
             right = mid - 1;
         }
     }
-    
-    std::cout << "Valor óptimo de a: " << best_a << " con " << min_io << " I/Os" << std::endl;
+    std::cout << "RESULTADO FINAL: Valor óptimo de a: " << best_a << " con " << min_io << " I/Os" << std::endl;
+
     return best_a;
 }
 

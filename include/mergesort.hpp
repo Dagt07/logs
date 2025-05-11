@@ -23,4 +23,7 @@ void externalMergeSort(FILE* inputFile, FILE* outputFile, size_t start, size_t e
 // Función principal de MergeSort Externo
 void performExternalMergeSort(const char* inputFileName, const char* outputFileName, size_t a);
 
+// Función para verificar si un archivo está ordenado
+bool checkSorted(const std::string &filename);
+
 #endif
