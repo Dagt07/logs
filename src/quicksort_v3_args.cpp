@@ -37,7 +37,7 @@ using namespace std;
 // --------------------------------- Variables globales ---------------------------------
 long B_SIZE; // tamaño del bloque en bytes
 long M_SIZE; //tamaño de memoria principal (50 MB)
-int disk_access = 0; // contador de accesos al disco
+long long disk_access = 0; // contador de accesos al disco
 
 // --------------------------------- Funciones de I/O por bloque ---------------------------------
 
@@ -309,7 +309,7 @@ void printFirstElements(FILE* file, long numElements) {
 
 extern void externalQuicksort(const std::string& inputFile, long N_SIZE, int a, bool first_run);
 
-int run_quicksort(const std::string& inputFile, long N_SIZE, int a, long B_SIZE_arg, long M_SIZE_arg) {
+long long run_quicksort(const std::string& inputFile, long N_SIZE, int a, long B_SIZE_arg, long M_SIZE_arg) {
     /* Función principal para ejecutar el Quicksort Externo
     args:
         inputFile: nombre del archivo de entrada

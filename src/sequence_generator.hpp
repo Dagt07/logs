@@ -15,9 +15,9 @@
  * Genera una secuencia pseudo‑aleatoria de N enteros de 64 bit y la escribe en
  * disco **exclusivamente** en bloques de BLOCK_SIZE bytes.
  *
- * @param N          Cantidad de enteros de 64 bit.
- * @param file_name  Nombre del .bin de salida.
- * @param BLOCK_SIZE     Tamaño de bloque (debe ser múltiplo de 8).
+ * @param N             Cantidad de enteros de 64 bit.
+ * @param file_name     Nombre del .bin de salida.
+ * @param BLOCK_SIZE    Tamaño de bloque (debe ser múltiplo de 8).
  */
 inline void generate_sequence(std::int64_t N,
                               const std::string& file_name,
