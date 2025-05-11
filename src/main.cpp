@@ -129,16 +129,16 @@ int main(int argc, char* argv[]){
     results_csv << "Size_MB,Repetition,N_elements,MergeSort_Time_ms,MergeSort_Disk_Access,"
                 << "QuickSort_Time_ms,QuickSort_Disk_Access\n";
 
-    for (size_t i = 0; i < v.size(); ++i)
-    {
-        int mult = static_cast<int>((i + 1) * 4);      // 4,8,…,60
+    for (size_t i = 0; i < v.size(); ++i){
+    // Recorremos el vector de tamaños N → 4,8,…,60
+        int mult = static_cast<int>((i + 1) * 4);      
         int64_t N = static_cast<int64_t>(v[i]) * M_BYTES;
 
         cout << "\n===  Multiplicador " << mult
                   << " M  →  N = " << N << " bytes  ===\n";
 
-        for (int rep = 1; rep <= 5; ++rep)
-        {
+        for (int rep = 1; rep <= 5; ++rep){
+        // Generar  5  secuencias  de  números  enteros  de  64  bits  de  tamaño  total  𝑁  
             ostringstream fn;
             fn << "seq_" << setw(2) << setfill('0')
                << mult << "M_rep" << rep << ".bin";
