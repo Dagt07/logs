@@ -359,7 +359,6 @@ void externalMergeSort(const std::string& input_filename, const std::string& out
     }
     
     size_t file_size_bytes = input_file.tellg();
-    std::cout << "Tamaño del archivo: " << file_size_bytes << " bytes" << std::endl;
     size_t total_elements = file_size_bytes / sizeof(int64_t);
     input_file.close();
     

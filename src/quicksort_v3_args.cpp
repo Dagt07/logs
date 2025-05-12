@@ -118,10 +118,6 @@ void externalQuicksort(const string& fileName, long N_SIZE, int a, bool first_ru
         void
     */
 
-    if (first_run) {
-        cout << "Tamaño del archivo: " << N_SIZE << " bytes" << endl;
-    }
-
     // Caso base: Si los datos caben en la memoria principal, ordenar directamente en memoria
     if (N_SIZE * sizeof(int64_t) <= M_SIZE) {
         vector<int64_t> buffer(N_SIZE);
