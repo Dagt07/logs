@@ -2,10 +2,10 @@
 #define MERGESORT_H
 #include <vector>
 #include <cstdio>
-#include <cstdint> // For int64_t
+#include <cstdint> 
 #include <iostream>
 
-#define M 32 // Tamaño de M (50MB)*
+#define M 1024 * 1024 * 50 // Tamaño de M (50MB)*
 #define B 4096   // Tamaño de bloque B (1MB)*
 
 // Función para leer un bloque de tamaño B desde el archivo
