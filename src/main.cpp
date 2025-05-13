@@ -122,7 +122,7 @@ AlgorithmResults process_sequence(const std::string& filename, long N_SIZE, int 
      << results.merge_disk_access << " accesos a disco" << std::endl;
 
     // Check if the file is sorted
-    std::string sortedFilename = filename + ".sorted";
+    std::string sortedFilename = "output.bin"; // Nombre del archivo de salida de mergesort
     FILE* file = fopen(sortedFilename.c_str(), "rb");
     if (!file) {
         cerr << "Error: No se pudo abrir el archivo " << filename << endl;
