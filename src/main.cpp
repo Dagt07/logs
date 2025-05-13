@@ -192,8 +192,8 @@ int main(int argc, char* argv[]){
         int mult = static_cast<int>((i + 1) * 4);      
         int64_t N = static_cast<int64_t>(v[i]) * M_BYTES;
 
-        cout << "\n===  Multiplicador " << mult
-                  << " M  →  N = " << N << " bytes  ===\n";
+        cout << "\n=============  Multiplicador " << mult
+                  << " M  →  N = " << N << " bytes  =============\n";
 
         for (int rep = 1; rep <= 5; ++rep){
         // Generar  5  secuencias  de  números  enteros  de  64  bits  de  tamaño  total  𝑁  
