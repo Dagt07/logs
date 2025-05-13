@@ -40,7 +40,7 @@
 using namespace std;
 
 //vector de 15 tamaños N
-vector<int> v = {4, 8, 12, 16, 20, 24}; //, 28, 32, 36, 40, 44, 48, 52, 56, 60};
+vector<int> v = {4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60};
 
 bool checkSorted(FILE* file, long input_size) {
     /* Verifica si el archivo completo está ordenado
@@ -125,7 +125,7 @@ AlgorithmResults process_sequence(const std::string& filename, long N_SIZE, int 
     std::string sortedFilename = "output.bin"; // Nombre del archivo de salida de mergesort
     FILE* file = fopen(sortedFilename.c_str(), "rb");
     if (!file) {
-        cerr << "Error: No se pudo abrir el archivo " << filename << endl;
+        cerr << "Error: No se pudo abrir el archivo " << sortedFilename << endl;
         return results;
     }
     bool _ = checkSorted(file, N_SIZE);
@@ -219,7 +219,6 @@ int main(int argc, char* argv[]){
             filesystem::remove(fn.str()+".sorted");
             break;
         }
-        break;
     }
 
     // Fin del experimento
