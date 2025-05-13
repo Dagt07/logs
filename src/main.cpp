@@ -134,33 +134,33 @@ AlgorithmResults process_sequence(const std::string& filename, long N_SIZE, int 
 
     // --------------------------- QUICKSORT ---------------------------
     // Start measuring time for quicksort
-    auto quick_start_time = std::chrono::high_resolution_clock::now();
+    // auto quick_start_time = std::chrono::high_resolution_clock::now();
     
-    // Here we call run_quicksort and pass the necessary arguments
-    int quick_sort_disk_access = run_quicksort(filename, N_SIZE, a, B_SIZE, M_SIZE);
+    // // Here we call run_quicksort and pass the necessary arguments
+    // int quick_sort_disk_access = run_quicksort(filename, N_SIZE, a, B_SIZE, M_SIZE);
     
-    // Stop measuring time
-    auto quick_end_time = std::chrono::high_resolution_clock::now();
+    // // Stop measuring time
+    // auto quick_end_time = std::chrono::high_resolution_clock::now();
     
-    // Calculate duration in milliseconds
-    auto quick_duration = std::chrono::duration_cast<std::chrono::milliseconds>(quick_end_time - quick_start_time);
+    // // Calculate duration in milliseconds
+    // auto quick_duration = std::chrono::duration_cast<std::chrono::milliseconds>(quick_end_time - quick_start_time);
     
-    // Store quicksort results
-    results.quick_time_ms = quick_duration.count();
-    results.quick_disk_access = quick_sort_disk_access;
+    // // Store quicksort results
+    // results.quick_time_ms = quick_duration.count();
+    // results.quick_disk_access = quick_sort_disk_access;
     
-    // Check if the file is sorted
-    FILE* file2 = fopen(filename.c_str(), "rb");
-    if (!file2) {
-        cerr << "Error: No se pudo abrir el archivo " << filename << endl;
-        return results;
-    }
-    bool __ = checkSorted(file2, N_SIZE);
-    fclose(file2);
+    // // Check if the file is sorted
+    // FILE* file2 = fopen(filename.c_str(), "rb");
+    // if (!file2) {
+    //     cerr << "Error: No se pudo abrir el archivo " << filename << endl;
+    //     return results;
+    // }
+    // bool __ = checkSorted(file2, N_SIZE);
+    // fclose(file2);
 
-    // Print results
-    cout << "QuickSort completado en " << results.quick_time_ms << " ms, con " 
-         << results.quick_disk_access << " accesos a disco" << endl;
+    // // Print results
+    // cout << "QuickSort completado en " << results.quick_time_ms << " ms, con " 
+    //      << results.quick_disk_access << " accesos a disco" << endl;
          
     return results;
 }

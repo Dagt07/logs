@@ -9,6 +9,8 @@
 #include <string>  // Para std::string y stoi
 #include <cmath>   // Para floor
 #include <ctime>   // Para time() en srand
+#include "../headers/mergesort.hpp"
+
 
 using namespace std;
 
@@ -472,9 +474,9 @@ void mergeFiles(const char* output_file_name, int num_runs, int block_size_eleme
 // --- Fin de mergeFiles ---
 
 
-// --- Función externalSort (orquestador) ---
-void externalSort(const char* input_file, const char* output_file, int arity_k, int run_size_M_elements, int block_size_B_elements) {
-    cout << "--- Starting External Sort ---" << endl;
+// --- Función externalMergeSort (orquestador) ---
+void externalMergeSort(const char* input_file, const char* output_file, int arity_k, int run_size_M_elements, int block_size_B_elements) {
+    cout << "--- Starting External Merge Sort Sort ---" << endl;
     cout << "Input file: " << input_file << endl;
     cout << "Output file: " << output_file << endl;
     cout << "Memory per run (M): " << run_size_M_elements << " elements (" << (long long)run_size_M_elements * sizeof(long long) / (1024.0*1024.0) << " MiB)" << endl;
@@ -673,137 +675,21 @@ void printUsage(const char* progName) {
 
 }
 
-int main(int argc, char* argv[]) {
-    string input_file_str;
-    string output_file_str;
-    int specified_arity = -1; // -1 indica no especificado
-    bool calculate_flag = false;
-    bool generate_flag = false;
-    bool check_flag = false;
-    long long elements_to_generate = 0;
+int run_mergesort(const string& inputFile, long N_SIZE, int a, long B_SIZE_arg, long M_SIZE_arg) {
+    // Calcular el tamaño de bloque B y la memoria M
+    int B_SIZE = static_cast<int>(B_SIZE_arg);
+    long long M_SIZE = M_SIZE_arg;
 
-    // Parsear argumentos
-    int arg_idx = 1;
-    if (argc < 3) {
-        printUsage(argv[0]);
-        return 1;
+    // Calcular la aridad óptima si no se proporciona
+    if (a < 2) {
+        cout << "Calculating optimal arity based on memory size..." << endl;
+        a = calculateOptimalArity(M_SIZE, B_SIZE);
     }
 
-    input_file_str = argv[arg_idx++];
-    output_file_str = argv[arg_idx++];
-
-    while (arg_idx < argc) {
-        string current_arg = argv[arg_idx];
-        if (current_arg == "-a") {
-            if (arg_idx + 1 < argc) {
-                try {
-                    specified_arity = stoi(argv[arg_idx + 1]);
-                    if (specified_arity < 2) {
-                        cerr << "Error: Arity specified with -a must be >= 2." << endl;
-                        return 1;
-                    }
-                } catch (const std::invalid_argument& ia) {
-                    cerr << "Error: Invalid number provided for arity -a." << endl;
-                    return 1;
-                } catch (const std::out_of_range& oor) {
-                     cerr << "Error: Arity number provided for -a is out of range." << endl;
-                     return 1;
-                }
-                arg_idx += 2;
-            } else {
-                cerr << "Error: -a flag requires an integer argument." << endl;
-                printUsage(argv[0]);
-                return 1;
-            }
-        } else if (current_arg == "--calculate-arity") {
-            calculate_flag = true;
-            arg_idx++;
-        } else if (current_arg == "--generate") {
-             if (arg_idx + 1 < argc) {
-                try {
-                    elements_to_generate = stoll(argv[arg_idx + 1]); // Use stoll for long long
-                    if (elements_to_generate <= 0) {
-                        cerr << "Error: Number of elements to generate must be positive." << endl;
-                        return 1;
-                    }
-                    generate_flag = true;
-                } catch (const std::invalid_argument& ia) {
-                    cerr << "Error: Invalid number provided for --generate." << endl;
-                    return 1;
-                } catch (const std::out_of_range& oor) {
-                     cerr << "Error: Number for --generate is out of range." << endl;
-                     return 1;
-                }
-                arg_idx += 2;
-             } else {
-                cerr << "Error: --generate flag requires the number of elements (N)." << endl;
-                printUsage(argv[0]);
-                return 1;
-             }
-        } else if (current_arg == "--check") {
-            check_flag = true;
-            arg_idx++;
-        }
-        else {
-            cerr << "Error: Unknown argument '" << current_arg << "'" << endl;
-            printUsage(argv[0]);
-            return 1;
-        }
-    }
-
-    // --- Generar archivo de entrada si se solicitó ---
-    if (generate_flag) {
-         generateTestInputFile(input_file_str.c_str(), elements_to_generate);
-         // Después de generar, podríamos querer salir o continuar con el ordenamiento.
-         // Por ahora, continuaremos para ordenar el archivo recién generado.
-         cout << "Input file '" << input_file_str << "' generated. Proceeding with sort..." << endl;
-    } else {
-        // Verificar si el archivo de entrada existe si no se generó
-        FILE* test_in = fopen(input_file_str.c_str(), "rb");
-        if (!test_in) {
-            cerr << "Error: Input file '" << input_file_str << "' not found and --generate not specified." << endl;
-            printUsage(argv[0]);
-            return 1;
-        }
-        fclose(test_in);
-         cout << "Using existing input file: " << input_file_str << endl;
-    }
-
-
-    // --- Determinar la Aridad a Usar ---
-    int final_arity;
-    int calculated_optimal_arity = calculateOptimalArity(M_BYTES, B_BYTES);
-
-    if (calculate_flag) {
-        // Si se pide calcular explícitamente, se usa ese valor y se ignora -a
-        final_arity = calculated_optimal_arity;
-        cout << "Using explicitly calculated optimal arity: " << final_arity << endl;
-    } else if (specified_arity != -1) {
-        // Si se especificó -a y no --calculate-arity, se usa el valor especificado
-        final_arity = specified_arity;
-        cout << "Using user-specified arity: " << final_arity << endl;
-    } else {
-        // Si no se especificó -a ni --calculate-arity, se usa el valor óptimo calculado como default
-        final_arity = calculated_optimal_arity;
-        cout << "Using default calculated optimal arity: " << final_arity << endl;
-    }
-
-
-    // --- Ejecutar el Ordenamiento Externo ---
-    externalSort(input_file_str.c_str(), output_file_str.c_str(), final_arity, RUN_SIZE_ELEMENTS, BLOCK_SIZE_ELEMENTS);
-
-    // --- Verificar el resultado si se solicitó ---
-    if (check_flag) {
-         // Reiniciar contador de I/O para la verificación (o usar uno separado)
-         long long sort_io = countIO;
-         countIO = 0;
-         cout << "\n--- Verifying Output File ---" << endl;
-         bool is_sorted = checkSorted(output_file_str.c_str());
-         cout << "I/O operations during verification: " << countIO << endl;
-         cout << "Total I/O operations (sort + verification): " << sort_io + countIO << endl;
-         return is_sorted ? 0 : 1; // Devolver 0 si está ordenado, 1 si no.
-    }
-
-
-    return 0;
+    // Ejecutar el Merge Sort Externo
+    externalMergeSort(inputFile.c_str(), "output.bin", a, RUN_SIZE_ELEMENTS, BLOCK_SIZE_ELEMENTS);
+    
+    // retornamos el número de operaciones de I/O
+    cout << "Total I/O operations: " << countIO << endl;
+    return countIO;
 }
