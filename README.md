@@ -49,6 +49,20 @@ siendo
 
 ### Ejecutar en Docker
 
+Disclaimer: 
+En el computador 2 luego de muchos cambios en el código por la prisa respecto a la hora de entrega dejo de correr en docker, principalmente porque sale el siguiente error:
+
+root@20048341c9e0 /workspace/src (0.046s)
+$ ./main 50 4096 30
+./main: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.38' not found (required by ./main)
+./main: /lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.32' not found (required by ./main)
+
+y es un tema de compilación, por más que se instala las librerias sugeridas con apt no se soluciona.
+
+En computador 1, funcionó
+
+Además en el main.cpp fue comentada la ejecución de quicksort por lo mencionado en el informe, para entorno de sistema operativo host basta descomentarla dentro del mismo archivo en la función process_sequence para que se ejecute y verifiquen sus resultados
+
 **Requisitos:** Tener instalado docker, se puede verificar haciendo ```docker --version```
 
 Descargar el contenedor de docker brindado por el equipo docente, alternativamente ir a [docker.hub](https://hub.docker.com/r/pabloskewes/cc4102-cpp-env)
