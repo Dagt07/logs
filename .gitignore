@@ -4,3 +4,5 @@
 
 # Compiled code binarys
 # acá ponemos el compilado cuando tengamos un nombre establecido
+
+*.bin

@@ -15,22 +15,20 @@ using namespace std;
 const long long M_BYTES = 50 * 1024 * 1024; // 50 MB según la tarea
 
 // B: Tamaño del bloque de disco (en bytes)
-// Deberías determinar el tamaño real de un bloque en disco o usar uno asignado para la tarea.
-// Por ejemplo, 4KB o un valor que te indiquen.
 const int B_BYTES = 4 * 1024; // Ejemplo: 4KB
 
 // Calcula cuántos long long caben en M y B
-const int RUN_SIZE_ELEMENTS = M_BYTES / sizeof(long long); // Elementos por tramo en memoria
-const int BLOCK_SIZE_ELEMENTS = B_BYTES / sizeof(long long); // Elementos por bloque de disco
+const int RUN_SIZE_ELEMENTS = M_BYTES / sizeof(long long); 
+const int BLOCK_SIZE_ELEMENTS = B_BYTES / sizeof(long long);
 
 // Estructura para el MinHeap
 struct MinHeapNode {
-    long long element; // Elemento a almacenar (64 bits)
-    int i;             // Índice del archivo/tramo del cual se tomó el elemento
-    FILE* file_ptr;    // Puntero al archivo para leer el siguiente bloque si es necesario
-    vector<long long> buffer; // Buffer de entrada para este tramo
-    int buffer_pos;    // Posición actual en el buffer
-    long long elements_remaining_in_file; // Para saber si hay más elementos en el archivo de este tramo
+    long long element; 
+    int i;             
+    FILE* file_ptr;    
+    vector<long long> buffer; 
+    int buffer_pos;    
+    long long elements_remaining_in_file;
 };
 
 // Comparador para el MinHeap
@@ -41,9 +39,11 @@ struct CompareMinHeapNode {
 };
 
 // Prototipos
-void mergeSortInMemory(vector<long long>& arr);
+void sortBlock(vector<long long>& arr);
 FILE* openFile(const char* fileName, const char* mode);
-long long countIO = 0; // Contador global de operaciones de E/S
+
+ // Contador global de operaciones de E/S
+long long countIO = 0;
 
 // Función de ordenamiento en memoria (Merge Sort simple)
 void merge(vector<long long>& arr, int l, int m, int r) {
@@ -61,6 +61,7 @@ void merge(vector<long long>& arr, int l, int m, int r) {
     while (j < n2) arr[k++] = R[j++];
 }
 
+// Función de ordenamiento recursivo
 void mergeSortRecursive(vector<long long>& arr, int l, int r) {
     if (l < r) {
         int m = l + (r - l) / 2;
@@ -70,13 +71,12 @@ void mergeSortRecursive(vector<long long>& arr, int l, int r) {
     }
 }
 
-void mergeSortInMemory(vector<long long>& arr) {
-    if (!arr.empty()) {
-        mergeSortRecursive(arr, 0, arr.size() - 1);
-    }
+// Función para ordenar un bloque de datos en memoria
+void sortBlock(vector<long long>& arr) {
+    std::sort(arr.begin(), arr.end());
 }
 
-
+// Función para abrir un archivo y manejar errores
 FILE* openFile(const char* fileName, const char* mode) {
     FILE* fp = fopen(fileName, mode);
     if (fp == NULL) {
@@ -86,17 +86,17 @@ FILE* openFile(const char* fileName, const char* mode) {
     return fp;
 }
 
-// Crea los tramos iniciales ordenados
+
 // input_file: nombre del archivo de entrada
-// num_ways: aridad 'a', también el número de archivos temporales a generar (aproximadamente)
+// arity: aridad 'a', también el número de archivos temporales a generar (aproximadamente)
 // run_size_elements: M, capacidad de la memoria en número de elementos long long
 // block_size_elements: B, tamaño del bloque en disco en número de elementos long long
-int createInitialRuns(const char* input_file, int num_ways, int run_size_elements, int block_size_elements) {
+int createInitialRuns(const char* input_file, int arity, int run_size_elements, int block_size_elements) {
     FILE* in = openFile(input_file, "rb"); // Leer en modo binario
 
-    vector<FILE*> out_files(num_ways);
+    vector<FILE*> out_files(arity);
     char fileName[32];
-    for (int i = 0; i < num_ways; i++) {
+    for (int i = 0; i < arity; i++) {
         snprintf(fileName, sizeof(fileName), "temp_run_%d.bin", i);
         out_files[i] = openFile(fileName, "wb"); // Escribir en modo binario
     }
@@ -156,7 +156,7 @@ int createInitialRuns(const char* input_file, int num_ways, int run_size_element
 
         if (elements_in_current_run > 0) {
             vector<long long> current_run_data(run_buffer.begin(), run_buffer.begin() + elements_in_current_run);
-            mergeSortInMemory(current_run_data); // Ordenar el tramo en memoria
+            sortBlock(current_run_data); // Ordenar el tramo en memoria
 
             // Escribir el tramo ordenado al archivo temporal correspondiente, por bloques B
             FILE* current_out_file = out_files[next_output_file_idx];
@@ -169,24 +169,24 @@ int createInitialRuns(const char* input_file, int num_ways, int run_size_element
                 countIO++; // Contar escritura
                 elements_written_in_run += elements_to_write_this_block;
             }
-            next_output_file_idx = (next_output_file_idx + 1) % num_ways;
+            next_output_file_idx = (next_output_file_idx + 1) % arity;
         }
          if (total_elements_processed >= total_elements_in_file) {
             more_input = false;
         }
     }
 
-    for (int i = 0; i < num_ways; i++) {
+    for (int i = 0; i < arity; i++) {
         fclose(out_files[i]);
     }
     fclose(in);
-    return num_ways; // O el número real de tramos creados si es menor que num_ways
+    return arity;
 }
 
 
-// Mezcla k archivos ordenados (tramos)
+// Mezcla a archivos ordenados 
 // output_file_name: nombre del archivo de salida final
-// num_runs: número de tramos a mezclar (k o 'a')
+// num_runs: numero de bloques a mezclar 
 // block_size_elements: B
 void mergeFiles(const char* output_file_name, int num_runs, int block_size_elements) {
     FILE* out = openFile(output_file_name, "wb");
@@ -199,11 +199,10 @@ void mergeFiles(const char* output_file_name, int num_runs, int block_size_eleme
     for (int i = 0; i < num_runs; i++) {
         char fileName[32];
         snprintf(fileName, sizeof(fileName), "temp_run_%d.bin", i);
-        in_files[i] = fopen(fileName, "rb"); // No usamos openFile para poder detectar si el archivo no existe o está vacío
+        in_files[i] = fopen(fileName, "rb");
 
-        if (in_files[i] == NULL) { // Podría haber menos tramos que num_runs si el archivo original era pequeño
-            // cout << "Advertencia: El archivo temporal " << fileName << " no existe o no se puede abrir. Omitiendo." << endl;
-            num_runs = i; // Ajustar el número real de tramos
+        if (in_files[i] == NULL) {
+            num_runs = i; 
             break;
         }
 
@@ -211,11 +210,9 @@ void mergeFiles(const char* output_file_name, int num_runs, int block_size_eleme
         long long file_size = ftell(in_files[i]);
         fseek(in_files[i], 0, SEEK_SET);
 
-        if (file_size == 0) { // Archivo vacío
+        if (file_size == 0) { 
             fclose(in_files[i]);
-            in_files[i] = nullptr; // Marcar como no usado
-            // Remover este archivo de la lista o ajustar num_runs (más complejo, por ahora lo dejamos)
-            // Para una implementación robusta, deberías manejar esto mejor, quizás filtrando los archivos vacíos.
+            in_files[i] = nullptr; 
             continue;
         }
 
@@ -234,24 +231,19 @@ void mergeFiles(const char* output_file_name, int num_runs, int block_size_eleme
             if (read_count > 0) {
                 node.element = node.buffer[0];
                 node.buffer_pos = 1;
-                node.elements_remaining_in_file -= read_count; // Actualizar restantes después de la carga inicial del buffer
-                 // Si la lectura fue parcial, el buffer_pos y elements_remaining_in_file deben reflejarlo
-                node.buffer.resize(read_count); // Ajustar tamaño del buffer a lo leído
+                node.elements_remaining_in_file -= read_count; 
+                node.buffer.resize(read_count); 
                 min_heap.push(node);
             } else {
-                 fclose(in_files[i]); // Cerrar si no se pudo leer nada (ej. archivo vacío)
+                 fclose(in_files[i]); 
                  in_files[i] = nullptr;
             }
         } else {
-            fclose(in_files[i]); // Archivo existía pero no tenía elementos 'long long'
+            fclose(in_files[i]); 
             in_files[i] = nullptr;
         }
     }
     
-    // Ajustar num_runs si algunos archivos estaban vacíos y se marcaron como nullptr
-    // Esta parte es un poco más compleja de integrar limpiamente aquí,
-    // una mejor aproximación sería pre-filtrar los archivos temporales válidos.
-    // Por ahora, asumimos que los archivos abiertos son válidos y contienen datos.
 
     while (!min_heap.empty()) {
         MinHeapNode root = min_heap.top();
@@ -265,25 +257,25 @@ void mergeFiles(const char* output_file_name, int num_runs, int block_size_eleme
             output_buffer_pos = 0;
         }
 
-        if (root.buffer_pos < (int)root.buffer.size()) { // Todavía hay elementos en el buffer actual
+        if (root.buffer_pos < (int)root.buffer.size()) {
             root.element = root.buffer[root.buffer_pos++];
             min_heap.push(root);
-        } else { // Buffer vacío, intentar leer el siguiente bloque del archivo
+        } else { 
             if (root.elements_remaining_in_file > 0) {
                 long long elements_to_read_next_block = min((long long)block_size_elements, root.elements_remaining_in_file);
                 size_t read_count = fread(root.buffer.data(), sizeof(long long), elements_to_read_next_block, root.file_ptr);
                 countIO++;
                 if (read_count > 0) {
-                    root.buffer.resize(read_count); // Ajustar tamaño del buffer a lo leído
+                    root.buffer.resize(read_count); 
                     root.element = root.buffer[0];
                     root.buffer_pos = 1;
                     root.elements_remaining_in_file -= read_count;
                     min_heap.push(root);
-                } else { // Fin de este archivo temporal
+                } else { 
                     fclose(root.file_ptr);
                     root.file_ptr = nullptr;
                 }
-            } else { // No hay más elementos en el archivo
+            } else { 
                  if(root.file_ptr) fclose(root.file_ptr);
                  root.file_ptr = nullptr;
             }
@@ -297,20 +289,7 @@ void mergeFiles(const char* output_file_name, int num_runs, int block_size_eleme
     }
 
     fclose(out);
-    // No cerramos in_files aquí porque se cierran cuando se agotan o si no se pueden abrir.
-    // Pero una buena práctica sería asegurarse que todos estén cerrados.
-    for(int i=0; i<num_runs; ++i) {
-        if(in_files[i] && in_files[i] != nullptr) { // Si el puntero es válido y no se cerró antes
-            // Esto es un poco complicado porque el MinHeapNode tiene el puntero y lo cierra.
-            // Para evitar doble cierre, el MinHeapNode debería ser el único responsable.
-            // O, alternativamente, no almacenar el FILE* en el nodo si se gestionan fuera.
-            // Por simplicidad del ejemplo, lo dejo así, pero cuidado con esto.
-        }
-        // Eliminar archivos temporales
-        char fileName[32];
-        snprintf(fileName, sizeof(fileName), "temp_run_%d.bin", i);
-        remove(fileName);
-    }
+    
 }
 
 int externalMergeSort(const char* input_file, const char* output_file, int num_ways_k, int run_size_M_elements, int block_size_B_elements) {
@@ -326,9 +305,6 @@ int externalMergeSort(const char* input_file, const char* output_file, int num_w
 
     // Si createInitialRuns devuelve 0 tramos (ej. archivo de entrada vacío), no hay nada que mezclar.
     if (actual_num_runs > 0) {
-         // Asegúrate de que mergeFiles use el número *real* de tramos creados,
-         // especialmente si es menor que num_ways_k.
-         // El código de mergeFiles intenta ser robusto a esto, pero es bueno pasarlo correctamente.
         mergeFiles(output_file, actual_num_runs, block_size_B_elements);
         cout << "Fase de mezcla completada." << endl;
     } else {
@@ -339,9 +315,17 @@ int externalMergeSort(const char* input_file, const char* output_file, int num_w
     cout << "Ordenamiento externo finalizado." << endl;
     cout << "Total de operaciones de E/S (aproximado): " << countIO << endl;
 
+    // Eliminar archivos temporales
+    for (int i = 0; i < num_ways_k; i++) {
+        char fileName[32];
+        snprintf(fileName, sizeof(fileName), "temp_run_%d.bin", i);
+        remove(fileName);
+    }
+
     return countIO; 
 }
 
+// Modificar la declaración de run_mergesort para que coincida con el encabezado
 int run_mergesort(const std::string& inputFile, long N_SIZE, int a, long B_SIZE_arg, long M_SIZE_arg) {
     // Convertir los argumentos a enteros
     int B_SIZE = static_cast<int>(B_SIZE_arg);

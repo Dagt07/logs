@@ -79,15 +79,6 @@ bool checkSorted(FILE* file, long input_size) {
 }
 
 struct AlgorithmResults {
-    /* Estructura para almacenar los resultados de los algoritmos, tiempo y accesos a disco respectivamente
-    campos:
-        merge_time_ms: tiempo de ejecución de mergesort en milisegundos
-        merge_disk_access: accesos a disco de mergesort
-        quick_time_ms: tiempo de ejecución de quicksort en milisegundos
-        quick_disk_access: accesos a disco de quicksort
-    returns:
-        struct // <- se almacena en los campos de la estructura
-    */
     long long merge_time_ms;
     long long merge_disk_access;
     long long quick_time_ms;
