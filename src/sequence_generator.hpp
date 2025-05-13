@@ -12,47 +12,68 @@
 #include <vector>
 
 /**
- * Genera una secuencia pseudo‑aleatoria de N enteros de 64 bit y la escribe en
+ * Genera una secuencia pseudo‑aleatoria de N enteros de 64 bit y la escribe en
  * disco **exclusivamente** en bloques de BLOCK_SIZE bytes.
  *
- * @param N             Cantidad de enteros de 64 bit.
+ * @param N_BYTES       Cantidad total de bytes para el archivo (N enteros de 64 bit).
  * @param file_name     Nombre del .bin de salida.
- * @param BLOCK_SIZE    Tamaño de bloque (debe ser múltiplo de 8).
+ * @param BLOCK_SIZE    Tamaño de bloque en bytes (debe ser múltiplo de 8).
  */
-inline void generate_sequence(std::int64_t N,
-                              const std::string& file_name,
-                              std::size_t BLOCK_SIZE)
+inline void generate_sequence(std::int64_t N_BYTES,
+                             const std::string& file_name,
+                             std::size_t BLOCK_SIZE)
 {
     if (BLOCK_SIZE % sizeof(std::int64_t) != 0)
         throw std::invalid_argument("BLOCK_SIZE debe ser múltiplo de 8");
 
+    // Calculamos la cantidad real de elementos
+    std::int64_t num_elements = N_BYTES / sizeof(std::int64_t);
     const std::size_t ints_per_block = BLOCK_SIZE / sizeof(std::int64_t);
     std::vector<std::int64_t> buffer(ints_per_block);
 
+    // Inicializar generador de números pseudo-aleatorios
     std::mt19937_64 rng{std::random_device{}()};
     std::uniform_int_distribution<std::int64_t> dist;
 
     FILE* fp = std::fopen(file_name.c_str(), "wb");
     if (!fp) throw std::runtime_error("No se pudo abrir " + file_name);
 
-    std::int64_t written = 0;
-    while (written < N)
-    {
-        /* Llenar bloque */
-        for (std::size_t i = 0; i < ints_per_block; ++i)
+    std::cout << "Generando archivo '" << file_name << "' con " 
+              << num_elements << " elementos (" << N_BYTES << " bytes)..." << std::endl;
+    
+    // Para mostrar progreso
+    std::int64_t step = num_elements / 10;
+    if (step == 0) step = 1;
+
+    std::int64_t elements_written = 0;
+    while (elements_written < num_elements) {
+        // Determinar cuántos elementos quedan por escribir en este bloque
+        size_t elements_to_write = std::min(ints_per_block, 
+                                           static_cast<size_t>(num_elements - elements_written));
+        
+        // Llenar buffer con valores aleatorios
+        for (size_t i = 0; i < elements_to_write; ++i) {
             buffer[i] = dist(rng);
-
-        /* Escribir un bloque exacto */
-        if (std::fwrite(buffer.data(), BLOCK_SIZE, 1, fp) != 1)
+        }
+        
+        // Escribir al archivo
+        size_t items_written = std::fwrite(buffer.data(), sizeof(std::int64_t), 
+                                          elements_to_write, fp);
+        
+        if (items_written != elements_to_write)
             throw std::runtime_error("Error de escritura en " + file_name);
-
-        written += ints_per_block;
+        
+        elements_written += items_written;
+        
+        // Mostrar progreso
+        if (elements_written % step == 0 || elements_written == num_elements) {
+            std::cout << "\rGenerado " << elements_written << "/" 
+                      << num_elements << " elementos..." << std::flush;
+        }
     }
-
-    /* Relleno: si N no es múltiplo del bloque, *sobran* ints aleatorios;
-       la tarea lo permite mientras cada fwrite sea de tamaño BLOCK_SIZE. */
-
+    
     std::fclose(fp);
+    std::cout << "\nArchivo generado exitosamente." << std::endl;
 }
 
 

@@ -40,7 +40,7 @@
 using namespace std;
 
 //vector de 15 tamaños N
-vector<int> v = {4, 8, 12, 16, 20, 24}; //, 28, 32, 36, 40, 44, 48, 52, 56, 60};
+vector<int> v = {4, 8, 12, 16}; //, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60};
 
 bool checkSorted(FILE* file, long input_size) {
     /* Verifica si el archivo completo está ordenado
@@ -122,7 +122,7 @@ AlgorithmResults process_sequence(const std::string& filename, long N_SIZE, int 
      << results.merge_disk_access << " accesos a disco" << std::endl;
 
     // Check if the file is sorted
-    std::string sortedFilename = filename + ".sorted";
+    std::string sortedFilename = "output.bin";
     FILE* file = fopen(sortedFilename.c_str(), "rb");
     if (!file) {
         cerr << "Error: No se pudo abrir el archivo " << filename << endl;
@@ -131,7 +131,8 @@ AlgorithmResults process_sequence(const std::string& filename, long N_SIZE, int 
     bool _ = checkSorted(file, N_SIZE);
     fclose(file);
     
-
+    /*
+    
     // --------------------------- QUICKSORT ---------------------------
     // Start measuring time for quicksort
     auto quick_start_time = std::chrono::high_resolution_clock::now();
@@ -161,7 +162,7 @@ AlgorithmResults process_sequence(const std::string& filename, long N_SIZE, int 
     // Print results
     cout << "QuickSort completado en " << results.quick_time_ms << " ms, con " 
          << results.quick_disk_access << " accesos a disco" << endl;
-         
+    */
     return results;
 }
 
@@ -215,11 +216,10 @@ int main(int argc, char* argv[]){
             cout << "Archivo " << fn.str() << " procesado.\n";
             
             // 3. Borrar para liberar espacio                                     
-            filesystem::remove(fn.str());
-            filesystem::remove(fn.str()+".sorted");
+            //filesystem::remove(fn.str());
+            //filesystem::remove(fn.str()+".output.bin");
             break;
         }
-        break;
     }
 
     // Fin del experimento
