@@ -19,7 +19,8 @@
 ├── src/
 │   ├── main.cpp
 │   ├── mergesort.cpp
-│   ├── quicksort.cpp
+│   ├── quicksort_v3_args.cpp
+│   ├── quicksort_v3.cpp
 │   ├── sequence_generator.hpp
 │   └── ...
 └── README.md
@@ -33,7 +34,7 @@ cd src
 ```
 Compilar de forma conjunta main.cpp, mergesort.cpp y quicksort.cpp usando las siguientes flags y versión de compilación
 ```
-g++ -std=c++17 -O2 main.cpp mergesort.cpp quicksort.cpp -o main 
+g++ -std=c++17 -O2 main.cpp mergesort.cpp quicksort_v3_args.cpp -o main_docker
 ```
 
 Ahora con main como binario ejecutable, se deben dar los siguientes argumentos (en caso contrario habrá error):
